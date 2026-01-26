@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["claude/web-speech-api-poc-zXY5i", "main"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
