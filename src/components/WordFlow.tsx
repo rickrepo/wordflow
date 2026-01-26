@@ -1,13 +1,24 @@
 "use client";
 
 import React, { useRef, useCallback, useState, useEffect } from "react";
-import { lookupPhonemes, phonemeToSpeakable } from "@/lib/cmu-dictionary";
+import {
+  lookupPhonemes,
+  phonemeToSpeakable,
+  getBasePhoneme,
+  getPhonemeDisplayName
+} from "@/lib/cmu-dictionary";
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 
 interface WordFlowProps {
   text: string;
   title?: string;
+}
+
+interface PhonemeData {
+  phoneme: string;
+  display: string;
+  sound: string;
 }
 
 interface WordData {
@@ -15,7 +26,7 @@ interface WordData {
   index: number;
   text: string;
   cleanText: string;
-  phonemes: string[];
+  phonemes: PhonemeData[];
 }
 
 type PlaySpeed = "slow" | "medium" | "fast";
@@ -26,36 +37,34 @@ const SPEED_DELAYS: Record<PlaySpeed, number> = {
   fast: 400,
 };
 
-// Individual word card with slider
+// Word card with phoneme segments
 function WordCard({
   word,
   isCurrentTarget,
   isCompleted,
   isFuture,
   onComplete,
-  isSpeechReady,
   speechSynth,
+  isSpeechReady,
 }: {
   word: WordData;
   isCurrentTarget: boolean;
   isCompleted: boolean;
   isFuture: boolean;
   onComplete: () => void;
-  isSpeechReady: boolean;
   speechSynth: SpeechSynthesis | null;
+  isSpeechReady: boolean;
 }) {
-  const sliderRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [sliderProgress, setSliderProgress] = useState(0);
-  const [currentPhonemeIndex, setCurrentPhonemeIndex] = useState(-1);
+  const [activePhonemeIndex, setActivePhonemeIndex] = useState(-1);
+  const [completedPhonemes, setCompletedPhonemes] = useState<Set<number>>(new Set());
 
-  // Tracking for velocity
-  const lastXRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const velocityRef = useRef(0);
-  const lastPhonemeSpokenRef = useRef(-1);
+  // Reset when word changes
+  useEffect(() => {
+    setActivePhonemeIndex(-1);
+    setCompletedPhonemes(new Set());
+  }, [word.id, isCurrentTarget]);
 
-  const speak = useCallback((text: string, rate: number = 0.8) => {
+  const speak = useCallback((text: string, rate: number = 0.7) => {
     if (!speechSynth || !isSpeechReady) return;
     speechSynth.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
@@ -65,198 +74,132 @@ function WordCard({
     speechSynth.speak(utterance);
   }, [speechSynth, isSpeechReady]);
 
-  const speakPhoneme = useCallback((phoneme: string) => {
-    const sound = phonemeToSpeakable(phoneme);
-    speak(sound, 0.6);
-  }, [speak]);
-
-  const speakWord = useCallback(() => {
+  const speakWholeWord = useCallback(() => {
     speak(word.cleanText, 0.75);
   }, [speak, word.cleanText]);
 
-  const getProgressFromEvent = useCallback((clientX: number): number => {
-    if (!sliderRef.current) return 0;
-    const rect = sliderRef.current.getBoundingClientRect();
-    const x = clientX - rect.left;
-    return Math.max(0, Math.min(1, x / rect.width));
-  }, []);
+  const speakPhoneme = useCallback((phonemeData: PhonemeData) => {
+    speak(phonemeData.sound, 0.5);
+  }, [speak]);
 
-  const handleDragStart = useCallback((clientX: number) => {
-    if (isFuture) return; // Can't interact with future words
-
-    setIsDragging(true);
-    lastXRef.current = clientX;
-    lastTimeRef.current = performance.now();
-    lastPhonemeSpokenRef.current = -1;
-
-    const progress = getProgressFromEvent(clientX);
-    setSliderProgress(progress);
-  }, [isFuture, getProgressFromEvent]);
-
-  const handleDragMove = useCallback((clientX: number) => {
-    if (!isDragging || isFuture) return;
-
-    const now = performance.now();
-    const dt = now - lastTimeRef.current;
-    const dx = Math.abs(clientX - lastXRef.current);
-
-    if (dt > 0) {
-      velocityRef.current = dx / dt; // px per ms
-    }
-
-    lastXRef.current = clientX;
-    lastTimeRef.current = now;
-
-    const progress = getProgressFromEvent(clientX);
-    setSliderProgress(progress);
-
-    // Determine which phoneme we're on
-    if (word.phonemes.length > 0) {
-      const phonemeIndex = Math.floor(progress * word.phonemes.length);
-      const clampedIndex = Math.min(phonemeIndex, word.phonemes.length - 1);
-      setCurrentPhonemeIndex(clampedIndex);
-
-      // Slow drag = speak phonemes (velocity < 0.3 px/ms)
-      if (velocityRef.current < 0.3 && clampedIndex !== lastPhonemeSpokenRef.current) {
-        lastPhonemeSpokenRef.current = clampedIndex;
-        speakPhoneme(word.phonemes[clampedIndex]);
-      }
-    }
-  }, [isDragging, isFuture, getProgressFromEvent, word.phonemes, speakPhoneme]);
-
-  const handleDragEnd = useCallback(() => {
-    if (!isDragging) return;
-
-    setIsDragging(false);
-
-    // If we reached the end (>80%), complete the word
-    if (sliderProgress > 0.8) {
-      // Fast drag or reached end = speak whole word
-      if (velocityRef.current >= 0.3 || word.phonemes.length === 0) {
-        speakWord();
-      }
-
-      if (isCurrentTarget) {
-        onComplete();
-      }
-    }
-
-    // Reset after a moment
-    setTimeout(() => {
-      setSliderProgress(0);
-      setCurrentPhonemeIndex(-1);
-      lastPhonemeSpokenRef.current = -1;
-    }, 300);
-  }, [isDragging, sliderProgress, isCurrentTarget, onComplete, speakWord, word.phonemes.length]);
-
-  // Pointer event handlers
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    handleDragStart(e.clientX);
-  }, [handleDragStart]);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    handleDragMove(e.clientX);
-  }, [handleDragMove]);
-
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    handleDragEnd();
-  }, [handleDragEnd]);
-
-  // Tap to speak whole word
-  const handleTap = useCallback(() => {
+  // Handle phoneme tap
+  const handlePhonemeTap = useCallback((index: number) => {
     if (isFuture) return;
-    speakWord();
+
+    const phoneme = word.phonemes[index];
+    if (!phoneme) return;
+
+    setActivePhonemeIndex(index);
+    speakPhoneme(phoneme);
+
+    // Mark as completed
+    setCompletedPhonemes(prev => new Set([...prev, index]));
+
+    // Clear active after a moment
+    setTimeout(() => setActivePhonemeIndex(-1), 300);
+
+    // If all phonemes completed, complete the word
+    const newCompleted = new Set([...completedPhonemes, index]);
+    if (newCompleted.size === word.phonemes.length && isCurrentTarget) {
+      setTimeout(() => {
+        speakWholeWord();
+        onComplete();
+      }, 400);
+    }
+  }, [isFuture, word.phonemes, speakPhoneme, completedPhonemes, isCurrentTarget, speakWholeWord, onComplete]);
+
+  // Handle word tap (speak whole word)
+  const handleWordTap = useCallback(() => {
+    if (isFuture) return;
+    speakWholeWord();
     if (isCurrentTarget) {
+      // Mark all phonemes as complete
+      setCompletedPhonemes(new Set(word.phonemes.map((_, i) => i)));
       onComplete();
     }
-  }, [isFuture, speakWord, isCurrentTarget, onComplete]);
+  }, [isFuture, speakWholeWord, isCurrentTarget, word.phonemes, onComplete]);
 
-  // Determine colors
-  let wordColor = "text-gray-400"; // Future
-  let bgColor = "bg-gray-100";
-  let sliderBg = "bg-gray-200";
-  let sliderFill = "bg-gray-300";
+  // Colors
+  let containerBg = "bg-gray-50 border-gray-200";
+  let wordColor = "text-gray-400";
 
   if (isCompleted) {
+    containerBg = "bg-green-50 border-green-300";
     wordColor = "text-green-700";
-    bgColor = "bg-green-50";
-    sliderBg = "bg-green-100";
-    sliderFill = "bg-green-400";
   } else if (isCurrentTarget) {
+    containerBg = "bg-amber-50 border-amber-400 ring-2 ring-amber-300";
     wordColor = "text-amber-900";
-    bgColor = "bg-amber-50 ring-2 ring-amber-400";
-    sliderBg = "bg-amber-100";
-    sliderFill = "bg-amber-500";
-  }
-
-  if (isDragging) {
-    bgColor = isCurrentTarget ? "bg-yellow-100 ring-2 ring-yellow-500" : "bg-blue-50";
-    sliderFill = isCurrentTarget ? "bg-yellow-500" : "bg-blue-400";
   }
 
   return (
-    <div
-      className={`inline-flex flex-col items-center mx-1 my-2 p-2 rounded-lg transition-all ${bgColor}`}
-      style={{ minWidth: "60px" }}
-    >
-      {/* Word */}
-      <span
-        className={`text-2xl sm:text-3xl font-medium ${wordColor} cursor-pointer select-none`}
-        onClick={handleTap}
+    <div className={`flex flex-col items-center m-2 p-3 rounded-xl border-2 ${containerBg} transition-all`}>
+      {/* Word - tap for whole word */}
+      <button
+        onClick={handleWordTap}
+        disabled={isFuture}
+        className={`text-2xl sm:text-3xl font-semibold ${wordColor} mb-2 disabled:cursor-not-allowed`}
       >
         {word.text}
-      </span>
+      </button>
 
-      {/* Phoneme indicator */}
-      {isDragging && word.phonemes.length > 0 && currentPhonemeIndex >= 0 && (
-        <span className="text-xs text-amber-600 font-mono mt-1">
-          {word.phonemes[currentPhonemeIndex]}
-        </span>
+      {/* Phoneme segments */}
+      {word.phonemes.length > 0 ? (
+        <div className="flex gap-1 flex-wrap justify-center">
+          {word.phonemes.map((phoneme, idx) => {
+            const isActive = activePhonemeIndex === idx;
+            const isPhonemeCompleted = completedPhonemes.has(idx);
+
+            let phonemeBg = "bg-gray-200 text-gray-500";
+            if (isFuture) {
+              phonemeBg = "bg-gray-100 text-gray-300";
+            } else if (isActive) {
+              phonemeBg = "bg-yellow-400 text-yellow-900 scale-110";
+            } else if (isPhonemeCompleted) {
+              phonemeBg = "bg-green-400 text-green-900";
+            } else if (isCurrentTarget) {
+              phonemeBg = "bg-amber-200 text-amber-800 hover:bg-amber-300";
+            } else if (isCompleted) {
+              phonemeBg = "bg-green-200 text-green-700";
+            }
+
+            return (
+              <button
+                key={idx}
+                onClick={() => handlePhonemeTap(idx)}
+                disabled={isFuture}
+                className={`
+                  px-3 py-1.5 rounded-lg text-sm font-bold
+                  transition-all duration-150
+                  disabled:cursor-not-allowed
+                  ${phonemeBg}
+                `}
+              >
+                {phoneme.display}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <span className="text-xs text-gray-400 italic">no phonemes</span>
       )}
 
-      {/* Slider track */}
-      <div
-        ref={sliderRef}
-        className={`w-full h-3 mt-2 rounded-full ${sliderBg} relative cursor-pointer touch-none`}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        style={{ touchAction: "none" }}
-      >
-        {/* Progress fill */}
-        <div
-          className={`absolute left-0 top-0 h-full rounded-full transition-all ${sliderFill}`}
-          style={{ width: `${sliderProgress * 100}%` }}
-        />
+      {/* Progress indicator */}
+      {isCurrentTarget && word.phonemes.length > 0 && (
+        <div className="flex gap-0.5 mt-2">
+          {word.phonemes.map((_, idx) => (
+            <div
+              key={idx}
+              className={`w-2 h-2 rounded-full ${
+                completedPhonemes.has(idx) ? "bg-green-500" : "bg-gray-300"
+              }`}
+            />
+          ))}
+        </div>
+      )}
 
-        {/* Phoneme markers */}
-        {word.phonemes.length > 1 && (
-          <div className="absolute inset-0 flex">
-            {word.phonemes.map((_, i) => (
-              <div
-                key={i}
-                className="flex-1 border-r border-white/30 last:border-r-0"
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Drag handle */}
-        {isDragging && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-md border-2 border-amber-500"
-            style={{ left: `calc(${sliderProgress * 100}% - 8px)` }}
-          />
-        )}
-      </div>
-
-      {/* Hint for current word */}
-      {isCurrentTarget && !isDragging && (
-        <span className="text-xs text-amber-500 mt-1">slide →</span>
+      {/* Hint */}
+      {isCurrentTarget && completedPhonemes.size === 0 && (
+        <p className="text-xs text-amber-500 mt-1">tap each sound or the word</p>
       )}
     </div>
   );
@@ -279,16 +222,21 @@ export default function WordFlow({ text, title }: WordFlowProps) {
   const currentWordIndexRef = useRef(0);
   const isAutoPlayingRef = useRef(false);
 
-  // Parse words
+  // Parse words with phoneme data
   const words: WordData[] = text.split(/\s+/).filter(w => w.trim()).map((word, index) => {
     const cleanText = word.replace(/[.,!?;:'"()]/g, "").toLowerCase();
-    const phonemes = lookupPhonemes(cleanText) || [];
+    const rawPhonemes = lookupPhonemes(cleanText) || [];
+    const phonemes: PhonemeData[] = rawPhonemes.map(p => ({
+      phoneme: p,
+      display: getPhonemeDisplayName(p),
+      sound: phonemeToSpeakable(p),
+    }));
     return {
       id: `word-${index}`,
       index,
       text: word,
       cleanText,
-      phonemes: phonemes.map(p => p.replace(/[0-2]$/, "")), // Remove stress markers
+      phonemes,
     };
   });
 
@@ -306,6 +254,7 @@ export default function WordFlow({ text, title }: WordFlowProps) {
   const initializeSpeech = useCallback(() => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       speechSynthRef.current = window.speechSynthesis;
+      // iOS initialization
       const utterance = new SpeechSynthesisUtterance("");
       utterance.volume = 0;
       window.speechSynthesis.speak(utterance);
@@ -341,7 +290,7 @@ export default function WordFlow({ text, title }: WordFlowProps) {
   }, []);
 
   // Auto-play
-  const autoPlayStep = useCallback(async () => {
+  const autoPlayStep = useCallback(() => {
     if (!isAutoPlayingRef.current) return;
 
     const idx = currentWordIndexRef.current;
@@ -354,9 +303,7 @@ export default function WordFlow({ text, title }: WordFlowProps) {
 
     utterance.onend = () => {
       if (!isAutoPlayingRef.current) return;
-
       completeWord(idx);
-
       if (currentWordIndexRef.current < wordsRef.current.length && isAutoPlayingRef.current) {
         autoPlayTimerRef.current = setTimeout(autoPlayStep, SPEED_DELAYS[playSpeed]);
       }
@@ -394,9 +341,15 @@ export default function WordFlow({ text, title }: WordFlowProps) {
         <h1 className="text-3xl font-bold text-amber-800 text-center mb-4">
           {title || "WordFlow"}
         </h1>
-        <p className="text-amber-700 text-center mb-6 max-w-sm">
-          Slide across each word to hear it. Go slow for letter sounds!
+        <p className="text-amber-700 text-center mb-4 max-w-sm">
+          Tap each sound button to hear it, then tap the word to hear it all together!
         </p>
+        <div className="bg-amber-100 rounded-lg p-4 mb-6 max-w-sm">
+          <p className="text-amber-800 text-sm text-center">
+            <strong>Note:</strong> Browser voices can&apos;t perfectly pronounce individual sounds.
+            For best results, use Amazon Polly in production.
+          </p>
+        </div>
         <button
           onClick={handleStart}
           className="bg-amber-500 active:bg-amber-600 text-white text-xl font-semibold px-8 py-4 rounded-2xl shadow-lg"
@@ -442,6 +395,9 @@ export default function WordFlow({ text, title }: WordFlowProps) {
               style={{ width: `${(completedWords.size / words.length) * 100}%` }}
             />
           </div>
+          <p className="text-xs text-center text-gray-400 mt-0.5">
+            {completedWords.size} / {words.length} words
+          </p>
         </div>
 
         {/* Controls */}
@@ -452,7 +408,7 @@ export default function WordFlow({ text, title }: WordFlowProps) {
               isAutoPlaying ? "bg-red-500 text-white" : "bg-green-500 text-white"
             }`}
           >
-            {isAutoPlaying ? "⏹ Stop" : "▶ Play"}
+            {isAutoPlaying ? "⏹ Stop" : "▶ Play All"}
           </button>
           <div className="flex bg-gray-100 rounded-full p-0.5">
             {(["slow", "medium", "fast"] as PlaySpeed[]).map((speed) => (
@@ -481,18 +437,20 @@ export default function WordFlow({ text, title }: WordFlowProps) {
               isCompleted={completedWords.has(word.index)}
               isFuture={word.index > currentWordIndex}
               onComplete={() => completeWord(word.index)}
-              isSpeechReady={isSpeechReady}
               speechSynth={speechSynthRef.current}
+              isSpeechReady={isSpeechReady}
             />
           ))}
         </div>
       </div>
 
-      {/* Instructions */}
-      <div className="bg-white/80 text-center py-2">
-        <p className="text-amber-600 text-sm">
-          Slide the bar under each word. Slow = sounds, Fast = whole word
-        </p>
+      {/* Legend */}
+      <div className="bg-white border-t py-2 px-4">
+        <div className="flex justify-center gap-4 text-xs text-gray-500">
+          <span>🔘 tap sounds</span>
+          <span>📖 tap word</span>
+          <span>▶ auto-play</span>
+        </div>
       </div>
     </div>
   );
