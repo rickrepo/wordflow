@@ -6,6 +6,9 @@ import {
   phonemeToSpeakable,
 } from "@/lib/cmu-dictionary";
 
+// Version number - update with each release
+const VERSION = "0.4.0";
+
 interface WordFlowProps {
   text: string;
   title?: string;
@@ -19,6 +22,14 @@ interface WordData {
   phonemes: string[] | null;
 }
 
+type PlaySpeed = "slow" | "medium" | "fast";
+
+const SPEED_DELAYS: Record<PlaySpeed, number> = {
+  slow: 1500,
+  medium: 800,
+  fast: 400,
+};
+
 export default function WordFlow({ text, title }: WordFlowProps) {
   const [isStarted, setIsStarted] = useState(false);
   const [activeWordId, setActiveWordId] = useState<string | null>(null);
@@ -30,16 +41,15 @@ export default function WordFlow({ text, title }: WordFlowProps) {
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
 
+  // Auto-play
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [playSpeed, setPlaySpeed] = useState<PlaySpeed>("medium");
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Refs for tracking
   const speechSynthRef = useRef<SpeechSynthesis | null>(null);
   const lastSpokenWordRef = useRef<string | null>(null);
-  const lastSpokenPhonemeRef = useRef<string | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Velocity tracking
-  const lastPointerTimeRef = useRef<number>(0);
-  const lastPointerXRef = useRef<number>(0);
-  const velocityRef = useRef<number>(0);
 
   // Parse words once
   const words: WordData[] = text.split(/\s+/).filter(w => w.trim()).map((word, index) => {
@@ -80,38 +90,40 @@ export default function WordFlow({ text, title }: WordFlowProps) {
     setIsComplete(false);
     setIsReviewMode(false);
     setActiveWordId(null);
+    setIsAutoPlaying(false);
     lastSpokenWordRef.current = null;
+    if (autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current);
+    }
   }, []);
 
-  // Speak text
-  const speak = useCallback((text: string, rate: number = 0.8) => {
-    if (!speechSynthRef.current || !isSpeechReady) return;
+  // Speak text and return a promise when done
+  const speak = useCallback((text: string, rate: number = 0.8): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!speechSynthRef.current || !isSpeechReady) {
+        resolve();
+        return;
+      }
 
-    speechSynthRef.current.cancel();
+      speechSynthRef.current.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.pitch = 1.0;
-    utterance.volume = 1;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = rate;
+      utterance.pitch = 1.0;
+      utterance.volume = 1;
 
-    speechSynthRef.current.speak(utterance);
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+
+      speechSynthRef.current.speak(utterance);
+    });
   }, [isSpeechReady]);
 
   // Speak a whole word
-  const speakWord = useCallback((word: string) => {
-    if (word === lastSpokenWordRef.current) return;
+  const speakWord = useCallback((word: string, force: boolean = false) => {
+    if (!force && word === lastSpokenWordRef.current) return;
     lastSpokenWordRef.current = word;
-    lastSpokenPhonemeRef.current = null;
     speak(word, 0.75);
-  }, [speak]);
-
-  // Speak a phoneme
-  const speakPhoneme = useCallback((phoneme: string) => {
-    if (phoneme === lastSpokenPhonemeRef.current) return;
-    lastSpokenPhonemeRef.current = phoneme;
-
-    const speakable = phonemeToSpeakable(phoneme);
-    speak(speakable, 0.6);
   }, [speak]);
 
   // Mark word as complete and advance
@@ -121,111 +133,104 @@ export default function WordFlow({ text, title }: WordFlowProps) {
 
       if (wordIndex + 1 >= words.length) {
         setIsComplete(true);
+        setIsAutoPlaying(false);
       } else {
         setCurrentWordIndex(wordIndex + 1);
       }
     }
   }, [currentWordIndex, isComplete, words.length]);
 
-  // Calculate velocity
-  const updateVelocity = useCallback((x: number): "slow" | "fast" => {
-    const now = performance.now();
-    const dt = now - lastPointerTimeRef.current;
+  // Auto-play next word
+  const playNextWord = useCallback(async () => {
+    if (!isAutoPlaying || isComplete) return;
 
-    if (dt > 0 && lastPointerTimeRef.current > 0) {
-      const dx = Math.abs(x - lastPointerXRef.current);
-      velocityRef.current = dx / dt;
+    const word = words[currentWordIndex];
+    if (!word) return;
+
+    setActiveWordId(word.id);
+    await speak(word.cleanText, 0.75);
+
+    // Mark as complete and advance
+    setCompletedWords(prev => new Set([...prev, currentWordIndex]));
+
+    if (currentWordIndex + 1 >= words.length) {
+      setIsComplete(true);
+      setIsAutoPlaying(false);
+      setActiveWordId(null);
+    } else {
+      setCurrentWordIndex(prev => prev + 1);
+      // Schedule next word
+      autoPlayTimerRef.current = setTimeout(() => {
+        playNextWord();
+      }, SPEED_DELAYS[playSpeed]);
+    }
+  }, [isAutoPlaying, isComplete, currentWordIndex, words, speak, playSpeed]);
+
+  // Start/stop auto-play
+  const toggleAutoPlay = useCallback(() => {
+    if (isAutoPlaying) {
+      setIsAutoPlaying(false);
+      if (autoPlayTimerRef.current) {
+        clearTimeout(autoPlayTimerRef.current);
+      }
+      setActiveWordId(null);
+    } else {
+      setIsAutoPlaying(true);
+    }
+  }, [isAutoPlaying]);
+
+  // Effect to handle auto-play
+  useEffect(() => {
+    if (isAutoPlaying && !isComplete) {
+      playNextWord();
+    }
+    return () => {
+      if (autoPlayTimerRef.current) {
+        clearTimeout(autoPlayTimerRef.current);
+      }
+    };
+  }, [isAutoPlaying]); // Only trigger on autoPlay toggle
+
+  // Handle word tap
+  const handleWordTap = useCallback((word: WordData, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Stop auto-play if running
+    if (isAutoPlaying) {
+      setIsAutoPlaying(false);
+      if (autoPlayTimerRef.current) {
+        clearTimeout(autoPlayTimerRef.current);
+      }
     }
 
-    lastPointerTimeRef.current = now;
-    lastPointerXRef.current = x;
+    const isCurrentWord = word.index === currentWordIndex;
+    const isCompletedWord = completedWords.has(word.index);
 
-    return velocityRef.current < 0.15 ? "slow" : "fast";
-  }, []);
+    setActiveWordId(word.id);
+    setIsReviewMode(isCompletedWord && !isCurrentWord);
 
-  // Handle pointer movement
-  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isStarted || isComplete) return;
+    // Speak the word if it's current or completed
+    if (isCurrentWord || isCompletedWord) {
+      speakWord(word.cleanText, true);
 
-    const x = event.clientX;
-    const y = event.clientY - 40;
-
-    const speed = updateVelocity(x);
-    const element = document.elementFromPoint(x, y);
-
-    if (element?.hasAttribute("data-word-index")) {
-      const wordIndex = parseInt(element.getAttribute("data-word-index") || "-1", 10);
-      const wordId = element.getAttribute("data-word-id");
-      const word = element.getAttribute("data-word");
-      const phonemesStr = element.getAttribute("data-phonemes");
-
-      if (wordIndex < 0 || !wordId || !word) return;
-
-      setActiveWordId(wordId);
-
-      // Check if this is a review (going back) or current word
-      const isCurrentWord = wordIndex === currentWordIndex;
-      const isCompletedWord = completedWords.has(wordIndex);
-      const isFutureWord = wordIndex > currentWordIndex;
-
-      setIsReviewMode(isCompletedWord);
-
-      // Clear pending debounce
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
+      // Complete if it's the current word
+      if (isCurrentWord) {
+        completeWord(word.index);
       }
+    }
 
-      // Only speak if it's the current word OR a completed word (review)
-      if (isCurrentWord || isCompletedWord) {
-        debounceTimerRef.current = setTimeout(() => {
-          if (speed === "fast" || !phonemesStr) {
-            speakWord(word);
-            // Only advance if it's the current word (not review)
-            if (isCurrentWord) {
-              completeWord(wordIndex);
-            }
-          } else {
-            // Slow mode - phonemes
-            const rect = element.getBoundingClientRect();
-            const relativeX = x - rect.left;
-            const percentage = Math.max(0, Math.min(1, relativeX / rect.width));
-
-            const phonemes = phonemesStr.split(",");
-            const phonemeIndex = Math.floor(percentage * phonemes.length);
-            const clampedIndex = Math.min(phonemeIndex, phonemes.length - 1);
-
-            if (phonemes[clampedIndex]) {
-              speakPhoneme(phonemes[clampedIndex]);
-            }
-
-            // Complete word when reaching the end (last 20% of word)
-            if (isCurrentWord && percentage > 0.8) {
-              completeWord(wordIndex);
-            }
-          }
-        }, 50);
-      }
-      // Future words - no speech, just visual feedback
-    } else {
+    // Clear active state after a moment
+    setTimeout(() => {
       setActiveWordId(null);
       setIsReviewMode(false);
-      lastSpokenWordRef.current = null;
-      lastSpokenPhonemeRef.current = null;
-    }
-  }, [isStarted, isComplete, updateVelocity, currentWordIndex, completedWords, speakWord, speakPhoneme, completeWord]);
+    }, 300);
+  }, [isAutoPlaying, currentWordIndex, completedWords, speakWord, completeWord]);
 
-  // Handle pointer leave
-  const handlePointerLeave = useCallback(() => {
-    setActiveWordId(null);
-    setIsReviewMode(false);
-    lastSpokenWordRef.current = null;
-    lastSpokenPhonemeRef.current = null;
-    lastPointerTimeRef.current = 0;
-    velocityRef.current = 0;
-
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
+  // Prevent context menu
+  const preventContextMenu = useCallback((e: React.SyntheticEvent) => {
+    e.preventDefault();
+    return false;
   }, []);
 
   // Cleanup
@@ -233,6 +238,9 @@ export default function WordFlow({ text, title }: WordFlowProps) {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+      }
+      if (autoPlayTimerRef.current) {
+        clearTimeout(autoPlayTimerRef.current);
       }
       if (speechSynthRef.current) {
         speechSynthRef.current.cancel();
@@ -244,11 +252,12 @@ export default function WordFlow({ text, title }: WordFlowProps) {
   if (!isStarted) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-sky-100 to-sky-50 p-8">
+        <p className="text-xs text-gray-400 mb-2">v{VERSION}</p>
         <h1 className="text-3xl sm:text-4xl font-bold text-sky-700 text-center mb-4">
           {title || "WordFlow"}
         </h1>
         <p className="text-sky-600 text-center text-lg mb-8 max-w-md">
-          Trace your finger over the words in order to hear them read aloud!
+          Tap each word in order to hear it read aloud!
         </p>
         <button
           onClick={handleStart}
@@ -267,6 +276,7 @@ export default function WordFlow({ text, title }: WordFlowProps) {
   if (isComplete) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-green-100 to-sky-50 p-8">
+        <p className="text-xs text-gray-400 mb-2">v{VERSION}</p>
         <div className="text-6xl mb-4">🎉</div>
         <h1 className="text-3xl sm:text-4xl font-bold text-green-700 text-center mb-4">
           Great Job!
@@ -285,12 +295,25 @@ export default function WordFlow({ text, title }: WordFlowProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-sky-100 to-sky-50">
+    <div
+      className="flex min-h-screen flex-col bg-gradient-to-b from-sky-100 to-sky-50 select-none"
+      onContextMenu={preventContextMenu}
+      style={{
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+        userSelect: "none",
+      }}
+    >
       {/* Header */}
       <header className="flex-shrink-0 bg-white/90 shadow-sm px-4 py-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-sky-700 text-center">
-          {title || "WordFlow"}
-        </h1>
+        <div className="flex items-center justify-between max-w-xl mx-auto">
+          <p className="text-xs text-gray-400">v{VERSION}</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-sky-700 text-center">
+            {title || "WordFlow"}
+          </h1>
+          <div className="w-12"></div> {/* Spacer for centering */}
+        </div>
+
         {/* Progress bar */}
         <div className="mt-2 max-w-xs mx-auto">
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -303,21 +326,54 @@ export default function WordFlow({ text, title }: WordFlowProps) {
             {completedWords.size} / {words.length} words
           </p>
         </div>
+
+        {/* Auto-play controls */}
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <button
+            onClick={toggleAutoPlay}
+            className={`
+              px-4 py-2 rounded-full font-semibold text-sm transition-all
+              ${isAutoPlaying
+                ? "bg-red-500 text-white hover:bg-red-600"
+                : "bg-green-500 text-white hover:bg-green-600"
+              }
+            `}
+          >
+            {isAutoPlaying ? "⏹ Stop" : "▶ Auto-Play"}
+          </button>
+
+          <div className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
+            {(["slow", "medium", "fast"] as PlaySpeed[]).map((speed) => (
+              <button
+                key={speed}
+                onClick={() => setPlaySpeed(speed)}
+                className={`
+                  px-3 py-1 rounded-full text-xs font-medium transition-all
+                  ${playSpeed === speed
+                    ? "bg-sky-500 text-white"
+                    : "text-gray-600 hover:bg-gray-200"
+                  }
+                `}
+              >
+                {speed.charAt(0).toUpperCase() + speed.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
 
       {/* Mode indicator */}
       {isReviewMode && (
         <div className="bg-blue-100 text-blue-700 text-center py-1 text-sm font-medium">
-          Review Mode - Go to the highlighted word to continue
+          Review Mode
         </div>
       )}
 
       {/* Reading Area */}
       <div
         className="flex-1 overflow-auto px-4 py-6"
-        style={{ touchAction: "none" }}
-        onPointerMove={handlePointerMove}
-        onPointerLeave={handlePointerLeave}
+        style={{ touchAction: "manipulation" }}
+        onContextMenu={preventContextMenu}
       >
         <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-6">
           <div className="flex flex-wrap justify-center gap-x-3 gap-y-4 leading-relaxed">
@@ -326,7 +382,6 @@ export default function WordFlow({ text, title }: WordFlowProps) {
               const isCurrentTarget = word.index === currentWordIndex;
               const isCompleted = completedWords.has(word.index);
               const isFuture = word.index > currentWordIndex;
-              const phonemesData = word.phonemes?.join(",") || "";
 
               let bgColor = "bg-gray-100 text-gray-400"; // Future - grayed out
               let extraStyles = "";
@@ -342,17 +397,14 @@ export default function WordFlow({ text, title }: WordFlowProps) {
                   bgColor = "bg-yellow-300 text-yellow-900 scale-110 shadow-lg ring-2 ring-yellow-500"; // Current active
                 }
               } else if (isFuture && isActive) {
-                // Touching future word - subtle feedback but no highlight
                 extraStyles = "opacity-60";
               }
 
               return (
                 <span
                   key={word.id}
-                  data-word-id={word.id}
-                  data-word-index={word.index}
-                  data-word={word.cleanText}
-                  data-phonemes={phonemesData}
+                  onPointerDown={(e) => handleWordTap(word, e)}
+                  onContextMenu={preventContextMenu}
                   className={`
                     inline-block
                     text-2xl sm:text-3xl
@@ -361,9 +413,14 @@ export default function WordFlow({ text, title }: WordFlowProps) {
                     cursor-pointer
                     select-none
                     transition-all duration-150
+                    active:scale-95
                     ${bgColor}
                     ${extraStyles}
                   `}
+                  style={{
+                    WebkitTouchCallout: "none",
+                    WebkitUserSelect: "none",
+                  }}
                 >
                   {isCompleted && !isActive && (
                     <span className="mr-1 text-green-500">✓</span>
@@ -378,9 +435,9 @@ export default function WordFlow({ text, title }: WordFlowProps) {
         {/* Instructions */}
         <div className="mt-6 text-center">
           <p className="text-sky-600 text-sm">
-            {isReviewMode
-              ? "Touch a completed word to hear it again, or go to the yellow word to continue"
-              : "Trace the yellow highlighted word to continue reading"
+            {isAutoPlaying
+              ? "Auto-playing... tap Stop to pause"
+              : "Tap the yellow word to read it, or use Auto-Play"
             }
           </p>
         </div>
