@@ -4,7 +4,6 @@ import React, { useRef, useCallback, useState, useEffect } from "react";
 import {
   lookupPhonemes,
   phonemeToSpeakable,
-  getBasePhoneme,
 } from "@/lib/cmu-dictionary";
 
 interface WordFlowProps {
@@ -19,189 +18,30 @@ interface WordData {
   phonemes: string[] | null;
 }
 
-interface PhonemeSegment {
-  phoneme: string;
-  speakable: string;
-  index: number;
-}
-
-// Velocity thresholds (pixels per millisecond)
-const SLOW_THRESHOLD = 0.3; // Below this = slow glide (phoneme mode)
-const FAST_THRESHOLD = 0.8; // Above this = fast sweep (whole word)
-
 export default function WordFlow({ text, title }: WordFlowProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [isStarted, setIsStarted] = useState(false);
   const [activeWordId, setActiveWordId] = useState<string | null>(null);
-  const [activePhonemeIndex, setActivePhonemeIndex] = useState<number>(-1);
-  const [isSpeechSupported, setIsSpeechSupported] = useState(true);
-  const [mode, setMode] = useState<"word" | "phoneme">("word");
+  const [isSpeechReady, setIsSpeechReady] = useState(false);
+  const [currentPhonemeIndex, setCurrentPhonemeIndex] = useState(-1);
 
   // Refs for tracking
-  const lastSpokenRef = useRef<string | null>(null);
   const speechSynthRef = useRef<SpeechSynthesis | null>(null);
-  const lastPositionRef = useRef<{ x: number; y: number; time: number } | null>(
-    null
-  );
+  const lastSpokenWordRef = useRef<string | null>(null);
+  const lastSpokenPhonemeRef = useRef<string | null>(null);
+  const isSpeakingRef = useRef(false);
+  const speechQueueRef = useRef<string[]>([]);
+
+  // Velocity tracking
+  const lastPointerTimeRef = useRef<number>(0);
+  const lastPointerXRef = useRef<number>(0);
   const velocityRef = useRef<number>(0);
-  const currentWordRef = useRef<WordData | null>(null);
-  const phonemeQueueRef = useRef<PhonemeSegment[]>([]);
-  const lastPhonemeIndexRef = useRef<number>(-1);
 
-  // Initialize speech synthesis
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      speechSynthRef.current = window.speechSynthesis;
-      setIsSpeechSupported(true);
-    } else {
-      setIsSpeechSupported(false);
-    }
-  }, []);
+  // Debounce timer
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Speak a word or phoneme using Web Speech API
-  const speak = useCallback((text: string, rate: number = 0.8) => {
-    if (!speechSynthRef.current) return;
-
-    // Cancel any ongoing speech
-    speechSynthRef.current.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.pitch = 1.1;
-    utterance.volume = 1;
-
-    speechSynthRef.current.speak(utterance);
-  }, []);
-
-  // Speak a single phoneme
-  const speakPhoneme = useCallback(
-    (phoneme: string) => {
-      const speakable = phonemeToSpeakable(phoneme);
-      speak(speakable, 0.6); // Slower rate for phonemes
-    },
-    [speak]
-  );
-
-  // Speak the whole word
-  const speakWord = useCallback(
-    (word: string) => {
-      speak(word, 0.8);
-    },
-    [speak]
-  );
-
-  // Calculate velocity from pointer movement
-  const calculateVelocity = useCallback((x: number, y: number): number => {
-    const now = performance.now();
-    const last = lastPositionRef.current;
-
-    if (last) {
-      const dx = x - last.x;
-      const dy = y - last.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const dt = now - last.time;
-
-      if (dt > 0) {
-        velocityRef.current = distance / dt;
-      }
-    }
-
-    lastPositionRef.current = { x, y, time: now };
-    return velocityRef.current;
-  }, []);
-
-  // Handle pointer movement with velocity tracking
-  const handlePointerMove = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const x = event.clientX;
-      // Look-ahead offset: check 50px ABOVE the finger position
-      const y = event.clientY - 50;
-
-      // Calculate current velocity
-      const velocity = calculateVelocity(x, y);
-
-      // Determine mode based on velocity
-      const newMode = velocity < SLOW_THRESHOLD ? "phoneme" : "word";
-      if (newMode !== mode) {
-        setMode(newMode);
-      }
-
-      // Use elementFromPoint to find which element is at this position
-      const element = document.elementFromPoint(x, y);
-
-      // Check if we hit a phoneme segment
-      if (element && element.hasAttribute("data-phoneme-index")) {
-        const wordId = element.getAttribute("data-word-id");
-        const phonemeIndex = parseInt(
-          element.getAttribute("data-phoneme-index") || "-1",
-          10
-        );
-        const phoneme = element.getAttribute("data-phoneme");
-        const word = element.getAttribute("data-word");
-
-        if (wordId) {
-          setActiveWordId(wordId);
-          setActivePhonemeIndex(phonemeIndex);
-
-          // In phoneme mode with slow movement, speak individual phonemes
-          if (
-            newMode === "phoneme" &&
-            phoneme &&
-            phonemeIndex !== lastPhonemeIndexRef.current
-          ) {
-            lastPhonemeIndexRef.current = phonemeIndex;
-            speakPhoneme(phoneme);
-          }
-          // In word mode with fast movement, speak the whole word
-          else if (
-            newMode === "word" &&
-            word &&
-            word !== lastSpokenRef.current
-          ) {
-            lastSpokenRef.current = word;
-            lastPhonemeIndexRef.current = -1;
-            speakWord(word);
-          }
-        }
-      }
-      // Check if we hit a word without phoneme data
-      else if (element && element.hasAttribute("data-word-id")) {
-        const wordId = element.getAttribute("data-word-id");
-        const word = element.getAttribute("data-word");
-
-        if (wordId && word) {
-          setActiveWordId(wordId);
-          setActivePhonemeIndex(-1);
-
-          if (word !== lastSpokenRef.current) {
-            lastSpokenRef.current = word;
-            speakWord(word);
-          }
-        }
-      } else {
-        // Not over any word
-        if (activeWordId) {
-          setActiveWordId(null);
-          setActivePhonemeIndex(-1);
-          lastPhonemeIndexRef.current = -1;
-        }
-      }
-    },
-    [mode, activeWordId, calculateVelocity, speakPhoneme, speakWord]
-  );
-
-  // Handle pointer leave
-  const handlePointerLeave = useCallback(() => {
-    setActiveWordId(null);
-    setActivePhonemeIndex(-1);
-    lastSpokenRef.current = null;
-    lastPositionRef.current = null;
-    lastPhonemeIndexRef.current = -1;
-    velocityRef.current = 0;
-  }, []);
-
-  // Parse text into words with phoneme data
-  const words: WordData[] = text.split(/\s+/).map((word, index) => {
-    const cleanText = word.replace(/[.,!?;:'"()]/g, "");
+  // Parse words once
+  const words: WordData[] = text.split(/\s+/).filter(w => w.trim()).map((word, index) => {
+    const cleanText = word.replace(/[.,!?;:'"()]/g, "").toLowerCase();
     return {
       id: `word-${index}`,
       text: word,
@@ -210,152 +50,249 @@ export default function WordFlow({ text, title }: WordFlowProps) {
     };
   });
 
-  // Render a word with phoneme segments if available
-  const renderWord = (word: WordData) => {
-    const isActive = activeWordId === word.id;
+  // Initialize speech synthesis after user interaction (required for iOS)
+  const initializeSpeech = useCallback(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      speechSynthRef.current = window.speechSynthesis;
 
-    // If word has phonemes, render as segments
-    if (word.phonemes && word.phonemes.length > 0) {
-      return (
-        <span
-          key={word.id}
-          className={`
-            inline-flex items-center
-            mx-1 my-2
-            rounded-lg
-            select-none
-            transition-all duration-150
-            ${isActive ? "bg-yellow-200" : ""}
-          `}
-        >
-          {word.phonemes.map((phoneme, pIndex) => {
-            const isPhonemeActive = isActive && activePhonemeIndex === pIndex;
-            const basePhoneme = getBasePhoneme(phoneme);
+      // iOS requires speaking something to initialize
+      const utterance = new SpeechSynthesisUtterance("");
+      utterance.volume = 0;
+      window.speechSynthesis.speak(utterance);
 
-            // Calculate which letters this phoneme roughly corresponds to
-            // This is a simplification - real mapping would be more complex
-            const letterCount = Math.ceil(
-              word.cleanText.length / word.phonemes!.length
-            );
-            const startIdx = pIndex * letterCount;
-            const letters = word.text.slice(startIdx, startIdx + letterCount);
+      setIsSpeechReady(true);
+    }
+  }, []);
 
-            return (
-              <span
-                key={`${word.id}-p${pIndex}`}
-                data-word-id={word.id}
-                data-word={word.cleanText}
-                data-phoneme-index={pIndex}
-                data-phoneme={basePhoneme}
-                className={`
-                  inline-block
-                  text-3xl sm:text-4xl
-                  px-1 py-1
-                  cursor-pointer
-                  transition-all duration-100 ease-out
-                  ${
-                    isPhonemeActive
-                      ? "bg-yellow-400 text-yellow-900 scale-125 rounded-md shadow-lg"
-                      : isActive
-                        ? "text-yellow-800"
-                        : "text-gray-800"
-                  }
-                `}
-              >
-                {letters || "·"}
-              </span>
-            );
-          })}
-          {/* Handle trailing punctuation */}
-          {word.text.length > word.cleanText.length && (
-            <span className="text-3xl sm:text-4xl text-gray-800">
-              {word.text.slice(word.cleanText.length)}
-            </span>
-          )}
-        </span>
-      );
+  // Handle start button tap
+  const handleStart = useCallback(() => {
+    initializeSpeech();
+    setIsStarted(true);
+  }, [initializeSpeech]);
+
+  // Speak text with proper queuing
+  const speak = useCallback((text: string, rate: number = 0.8) => {
+    if (!speechSynthRef.current || !isSpeechReady) return;
+
+    // Cancel any ongoing speech
+    speechSynthRef.current.cancel();
+    isSpeakingRef.current = true;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = rate;
+    utterance.pitch = 1.0;
+    utterance.volume = 1;
+
+    utterance.onend = () => {
+      isSpeakingRef.current = false;
+    };
+
+    utterance.onerror = () => {
+      isSpeakingRef.current = false;
+    };
+
+    speechSynthRef.current.speak(utterance);
+  }, [isSpeechReady]);
+
+  // Speak a whole word
+  const speakWord = useCallback((word: string) => {
+    if (word === lastSpokenWordRef.current) return;
+    lastSpokenWordRef.current = word;
+    lastSpokenPhonemeRef.current = null;
+    speak(word, 0.75);
+  }, [speak]);
+
+  // Speak a phoneme
+  const speakPhoneme = useCallback((phoneme: string) => {
+    const key = phoneme;
+    if (key === lastSpokenPhonemeRef.current) return;
+    lastSpokenPhonemeRef.current = key;
+
+    const speakable = phonemeToSpeakable(phoneme);
+    speak(speakable, 0.6);
+  }, [speak]);
+
+  // Calculate velocity and determine if slow or fast
+  const updateVelocity = useCallback((x: number): "slow" | "fast" => {
+    const now = performance.now();
+    const dt = now - lastPointerTimeRef.current;
+
+    if (dt > 0 && lastPointerTimeRef.current > 0) {
+      const dx = Math.abs(x - lastPointerXRef.current);
+      velocityRef.current = dx / dt; // pixels per ms
     }
 
-    // Fallback for words without phoneme data
-    return (
-      <span
-        key={word.id}
-        data-word-id={word.id}
-        data-word={word.cleanText}
-        className={`
-          inline-block
-          text-3xl sm:text-4xl
-          px-2 py-1
-          mx-1 my-2
-          rounded-lg
-          cursor-pointer
-          select-none
-          transition-all duration-150 ease-out
-          ${
-            isActive
-              ? "bg-yellow-300 text-yellow-900 scale-110 shadow-md animate-pulse"
-              : "text-gray-800 hover:bg-yellow-100"
+    lastPointerTimeRef.current = now;
+    lastPointerXRef.current = x;
+
+    // Threshold: 0.2 px/ms is considered slow
+    return velocityRef.current < 0.15 ? "slow" : "fast";
+  }, []);
+
+  // Handle pointer/touch movement
+  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isStarted) return;
+
+    const x = event.clientX;
+    const y = event.clientY - 40; // Look above finger
+
+    const speed = updateVelocity(x);
+
+    // Find element at pointer position
+    const element = document.elementFromPoint(x, y);
+
+    if (element?.hasAttribute("data-word-id")) {
+      const wordId = element.getAttribute("data-word-id");
+      const word = element.getAttribute("data-word");
+      const phonemesStr = element.getAttribute("data-phonemes");
+
+      if (!wordId || !word) return;
+
+      setActiveWordId(wordId);
+
+      // Clear any pending debounce
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Debounce the speech to prevent rapid firing
+      debounceTimerRef.current = setTimeout(() => {
+        if (speed === "fast" || !phonemesStr) {
+          // Fast mode or no phonemes: speak whole word
+          setCurrentPhonemeIndex(-1);
+          speakWord(word);
+        } else {
+          // Slow mode: calculate which phoneme based on position within word
+          const rect = element.getBoundingClientRect();
+          const relativeX = x - rect.left;
+          const percentage = Math.max(0, Math.min(1, relativeX / rect.width));
+
+          const phonemes = phonemesStr.split(",");
+          const phonemeIndex = Math.floor(percentage * phonemes.length);
+          const clampedIndex = Math.min(phonemeIndex, phonemes.length - 1);
+
+          setCurrentPhonemeIndex(clampedIndex);
+
+          if (phonemes[clampedIndex]) {
+            speakPhoneme(phonemes[clampedIndex]);
           }
-        `}
-      >
-        {word.text}
-      </span>
+        }
+      }, 50); // 50ms debounce
+
+    } else {
+      // Not over a word
+      setActiveWordId(null);
+      setCurrentPhonemeIndex(-1);
+      lastSpokenWordRef.current = null;
+      lastSpokenPhonemeRef.current = null;
+    }
+  }, [isStarted, updateVelocity, speakWord, speakPhoneme]);
+
+  // Handle pointer leave
+  const handlePointerLeave = useCallback(() => {
+    setActiveWordId(null);
+    setCurrentPhonemeIndex(-1);
+    lastSpokenWordRef.current = null;
+    lastSpokenPhonemeRef.current = null;
+    lastPointerTimeRef.current = 0;
+    velocityRef.current = 0;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (speechSynthRef.current) {
+        speechSynthRef.current.cancel();
+      }
+    };
+  }, []);
+
+  // Start screen for iOS compatibility
+  if (!isStarted) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-sky-100 to-sky-50 p-8">
+        <h1 className="text-3xl sm:text-4xl font-bold text-sky-700 text-center mb-4">
+          {title || "WordFlow"}
+        </h1>
+        <p className="text-sky-600 text-center text-lg mb-8 max-w-md">
+          Trace your finger over the words to hear them read aloud!
+        </p>
+        <button
+          onClick={handleStart}
+          className="bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white text-xl font-semibold px-8 py-4 rounded-2xl shadow-lg transition-all transform hover:scale-105 active:scale-95"
+        >
+          Tap to Start
+        </button>
+        <p className="text-sky-400 text-sm mt-6">
+          Tap the button to enable sound
+        </p>
+      </div>
     );
-  };
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-sky-100 to-sky-50">
       {/* Header */}
-      <header className="flex-shrink-0 bg-white/80 backdrop-blur-sm shadow-sm px-4 py-4 sm:px-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-sky-700 text-center">
+      <header className="flex-shrink-0 bg-white/90 shadow-sm px-4 py-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-sky-700 text-center">
           {title || "WordFlow"}
         </h1>
-        {!isSpeechSupported && (
-          <p className="text-red-500 text-center text-sm mt-2">
-            Speech is not supported in this browser
-          </p>
-        )}
-        <p className="text-sky-600 text-center text-sm mt-1">
-          Trace your finger over the words to hear them!
-        </p>
-        {/* Mode indicator */}
-        <div className="flex justify-center mt-2">
-          <span
-            className={`
-            text-xs px-3 py-1 rounded-full font-medium
-            ${
-              mode === "phoneme"
-                ? "bg-purple-100 text-purple-700"
-                : "bg-green-100 text-green-700"
-            }
-          `}
-          >
-            {mode === "phoneme" ? "Slow: Sound it out" : "Fast: Whole word"}
-          </span>
-        </div>
       </header>
 
       {/* Reading Area */}
       <div
-        ref={containerRef}
-        className="flex-1 overflow-auto px-4 py-6 sm:px-8 sm:py-8"
+        className="flex-1 overflow-auto px-4 py-6"
         style={{ touchAction: "none" }}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
       >
-        <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-lg p-6 sm:p-8">
-          <p className="leading-loose text-center">
-            {words.map((word) => renderWord(word))}
+        <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-lg p-6">
+          <div className="flex flex-wrap justify-center gap-x-3 gap-y-4 leading-relaxed">
+            {words.map((word) => {
+              const isActive = activeWordId === word.id;
+              const phonemesData = word.phonemes?.join(",") || "";
+
+              return (
+                <span
+                  key={word.id}
+                  data-word-id={word.id}
+                  data-word={word.cleanText}
+                  data-phonemes={phonemesData}
+                  className={`
+                    inline-block
+                    text-2xl sm:text-3xl
+                    px-3 py-2
+                    rounded-xl
+                    cursor-pointer
+                    select-none
+                    transition-all duration-100
+                    ${isActive
+                      ? "bg-yellow-300 text-yellow-900 scale-110 shadow-md"
+                      : "text-gray-800 bg-gray-50 hover:bg-yellow-100"
+                    }
+                  `}
+                >
+                  {word.text}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="mt-6 text-center">
+          <p className="text-sky-600 text-sm">
+            Move slowly to sound out letters, or quickly for whole words
           </p>
         </div>
       </div>
-
-      {/* Footer hint */}
-      <footer className="flex-shrink-0 bg-white/80 backdrop-blur-sm px-4 py-3 text-center">
-        <p className="text-sky-500 text-xs sm:text-sm">
-          Move slowly to hear each sound, or quickly for the whole word
-        </p>
-      </footer>
     </div>
   );
 }
