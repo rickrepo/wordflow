@@ -215,11 +215,11 @@ export const arpabetToIPA: Record<string, string> = {
   ZH: "ʒ",
 };
 
-// Human-readable phoneme sounds for Web Speech API fallback
-export const phonemeToSound: Record<string, string> = {
-  // Vowels - stretched sounds
-  AA: "aah",
-  AE: "aah",
+// Human-readable phoneme display names
+export const phonemeDisplayName: Record<string, string> = {
+  // Vowels
+  AA: "ah",
+  AE: "a",
   AH: "uh",
   AO: "aw",
   AW: "ow",
@@ -233,20 +233,66 @@ export const phonemeToSound: Record<string, string> = {
   OY: "oy",
   UH: "oo",
   UW: "oo",
-
   // Consonants
-  B: "buh",
+  B: "b",
   CH: "ch",
-  D: "duh",
+  D: "d",
   DH: "th",
-  F: "fff",
+  F: "f",
+  G: "g",
+  HH: "h",
+  JH: "j",
+  K: "k",
+  L: "l",
+  M: "m",
+  N: "n",
+  NG: "ng",
+  P: "p",
+  R: "r",
+  S: "s",
+  SH: "sh",
+  T: "t",
+  TH: "th",
+  V: "v",
+  W: "w",
+  Y: "y",
+  Z: "z",
+  ZH: "zh",
+};
+
+// Stretched phoneme sounds for Web Speech API (best effort)
+// Note: Web Speech API is not designed for phonemes - use Amazon Polly for production
+export const phonemeToSound: Record<string, string> = {
+  // Vowels - use stretched natural sounds
+  AA: "ahhh",
+  AE: "aaah",
+  AH: "uhhh",
+  AO: "awww",
+  AW: "owww",
+  AY: "aye",
+  EH: "ehhh",
+  ER: "errr",
+  EY: "ayy",
+  IH: "ihhh",
+  IY: "eeee",
+  OW: "ohhh",
+  OY: "oyyy",
+  UH: "ooo",
+  UW: "oooo",
+
+  // Consonants - use letter sounds where possible
+  B: "buh",
+  CH: "chuh",
+  D: "duh",
+  DH: "thuh",
+  F: "ffff",
   G: "guh",
-  HH: "hh",
+  HH: "huh",
   JH: "juh",
   K: "kuh",
-  L: "lll",
-  M: "mmm",
-  N: "nnn",
+  L: "llll",
+  M: "mmmm",
+  N: "nnnn",
   NG: "ng",
   P: "puh",
   R: "rrr",
@@ -283,6 +329,14 @@ export function getBasePhoneme(phoneme: string): string {
 export function phonemeToSpeakable(phoneme: string): string {
   const base = getBasePhoneme(phoneme);
   return phonemeToSound[base] || phoneme;
+}
+
+/**
+ * Get human-readable display name for phoneme
+ */
+export function getPhonemeDisplayName(phoneme: string): string {
+  const base = getBasePhoneme(phoneme);
+  return phonemeDisplayName[base] || base.toLowerCase();
 }
 
 /**
