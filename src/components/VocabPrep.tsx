@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
-import { getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
+import { type Story, type GradeLevel } from '@/lib/stories';
 import { useSpeech } from '@/lib/useSpeech';
 import StoryScene from './illustrations/StoryScene';
 
@@ -34,11 +33,9 @@ function getKeyWords(story: Story, gradeLevel: GradeLevel): string[] {
 
 export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: VocabPrepProps) {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
-  const [revealedWords, setRevealedWords] = useState<Set<number>>(new Set());
-  const [isComplete, setIsComplete] = useState(false);
   const [showSpeakAnimation, setShowSpeakAnimation] = useState(false);
 
-  const { speak, speakSlowly, isSpeaking, hasAudio } = useSpeech();
+  const { speak, isSpeaking, hasAudio } = useSpeech();
   const vocabWords = getKeyWords(story, gradeLevel);
 
   // If no vocab words, skip directly to story
@@ -49,9 +46,17 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
   }, [vocabWords.length, onComplete]);
 
   const currentWord = vocabWords[currentWordIndex];
-  const syllables = currentWord ? getSyllables(currentWord) : [];
-  const hint = currentWord ? getAgeAppropriateHint(currentWord, gradeLevel) : '';
   const wordHasAudio = currentWord ? hasAudio(currentWord) : false;
+
+  // Auto-play word when it appears (if audio exists)
+  useEffect(() => {
+    if (currentWord && hasAudio(currentWord)) {
+      const timer = setTimeout(() => {
+        speak(currentWord);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [currentWordIndex, currentWord, hasAudio, speak]);
 
   const handlePlayWord = () => {
     if (currentWord && wordHasAudio) {
@@ -61,34 +66,12 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
     }
   };
 
-  const handlePlaySlowly = () => {
-    if (currentWord && wordHasAudio) {
-      setShowSpeakAnimation(true);
-      speakSlowly(currentWord);
-      setTimeout(() => setShowSpeakAnimation(false), 2000);
-    }
-  };
-
-  const handleRevealWord = () => {
-    setRevealedWords(prev => new Set(prev).add(currentWordIndex));
-    // Auto-play the word when revealed (if audio exists)
-    if (currentWord && hasAudio(currentWord)) {
-      setTimeout(() => {
-        speakSlowly(currentWord);
-      }, 300);
-    }
-  };
-
-  const handleNextWord = () => {
+  const handleNext = () => {
     if (currentWordIndex < vocabWords.length - 1) {
       setCurrentWordIndex(prev => prev + 1);
     } else {
-      setIsComplete(true);
+      onComplete();
     }
-  };
-
-  const handleStartReading = () => {
-    onComplete();
   };
 
   if (vocabWords.length === 0) {
@@ -114,12 +97,17 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
         <div className="flex items-center gap-3">
           <span className="text-2xl">{story.coverEmoji}</span>
           <div className="text-center">
-            <h1 className="text-sm font-semibold text-gray-800 leading-tight">Word Practice</h1>
+            <h1 className="text-sm font-semibold text-gray-800 leading-tight">New Words</h1>
             <p className="text-xs text-gray-400">{story.title}</p>
           </div>
         </div>
 
-        <div className="w-10" /> {/* Spacer */}
+        <button
+          onClick={onComplete}
+          className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+        >
+          Skip
+        </button>
       </header>
 
       {/* Progress dots */}
@@ -130,166 +118,91 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
             className={`h-2 rounded-full transition-all duration-300 ${
               i === currentWordIndex
                 ? 'w-8 bg-blue-500'
-                : i < currentWordIndex || revealedWords.has(i)
-                  ? 'w-2 bg-blue-300'
+                : i < currentWordIndex
+                  ? 'w-2 bg-green-400'
                   : 'w-2 bg-gray-200'
             }`}
           />
         ))}
       </div>
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative z-10">
-        {!isComplete ? (
-          <div className="w-full max-w-md">
-            {/* Word card */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 text-center">
-              <p className="text-gray-400 text-sm mb-4">
-                Word {currentWordIndex + 1} of {vocabWords.length}
-              </p>
-
-              {/* The word with speaker */}
-              <div className="mb-6">
-                <div className="relative inline-block">
-                  <h2 className={`text-5xl md:text-6xl font-bold text-gray-800 mb-4 transition-transform ${showSpeakAnimation ? 'scale-110' : ''}`}>
-                    {currentWord}
-                  </h2>
-
-                  {/* Sound waves animation when speaking */}
-                  {isSpeaking && (
-                    <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex gap-1">
-                      <div className="w-1 h-4 bg-blue-400 rounded-full animate-sound-wave" style={{ animationDelay: '0ms' }} />
-                      <div className="w-1 h-6 bg-blue-500 rounded-full animate-sound-wave" style={{ animationDelay: '100ms' }} />
-                      <div className="w-1 h-4 bg-blue-400 rounded-full animate-sound-wave" style={{ animationDelay: '200ms' }} />
-                    </div>
-                  )}
-                </div>
-
-                {/* Play buttons - only show if audio exists */}
-                {wordHasAudio ? (
-                  <div className="flex justify-center gap-3 mb-4">
-                    <button
-                      onClick={handlePlayWord}
-                      disabled={isSpeaking}
-                      className={`flex items-center gap-2 px-5 py-3 rounded-full font-medium transition-all ${
-                        isSpeaking
-                          ? 'bg-blue-100 text-blue-400'
-                          : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105 active:scale-95'
-                      }`}
-                    >
-                      <span className="text-xl">🔊</span>
-                      <span>Play</span>
-                    </button>
-
-                    <button
-                      onClick={handlePlaySlowly}
-                      disabled={isSpeaking}
-                      className={`flex items-center gap-2 px-5 py-3 rounded-full font-medium transition-all ${
-                        isSpeaking
-                          ? 'bg-purple-100 text-purple-400'
-                          : 'bg-purple-500 text-white hover:bg-purple-600 hover:scale-105 active:scale-95'
-                      }`}
-                    >
-                      <span className="text-xl">🐢</span>
-                      <span>Slow</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-xl">
-                    <p className="text-gray-400 text-sm">
-                      No audio uploaded for this word.
-                      <a href="/admin" className="text-blue-500 hover:underline ml-1">
-                        Add in Admin →
-                      </a>
-                    </p>
-                  </div>
-                )}
-
-                {/* Syllable breakdown */}
-                {revealedWords.has(currentWordIndex) && (
-                  <div className="animate-fade-in">
-                    <p className="text-2xl font-medium text-gray-600 mb-2">
-                      {syllables.map((syl, i) => (
-                        <span key={i}>
-                          <span className="text-blue-500">{syl}</span>
-                          {i < syllables.length - 1 && (
-                            <span className="text-gray-300 mx-1">·</span>
-                          )}
-                        </span>
-                      ))}
-                    </p>
-
-                    {/* Pronunciation hint */}
-                    <div className="bg-blue-50 rounded-xl p-4 mt-4">
-                      <p className="text-xs text-blue-400 mb-1">Say it like</p>
-                      <p className="text-xl font-semibold text-blue-600">{hint}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Action buttons */}
-              {!revealedWords.has(currentWordIndex) ? (
+      {/* Main content - Simple word display */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
+        <div className="w-full max-w-md">
+          {/* Word card - simple and clean */}
+          <div
+            className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 text-center cursor-pointer hover:scale-[1.02] transition-transform"
+            onClick={handleNext}
+          >
+            {/* Word number */}
+            <div className="flex justify-between items-center mb-6">
+              <span className="text-gray-400 text-sm">
+                {currentWordIndex + 1} / {vocabWords.length}
+              </span>
+              {wordHasAudio && (
                 <button
-                  onClick={handleRevealWord}
-                  className="w-full py-4 bg-amber-500 text-white rounded-xl font-semibold text-lg hover:bg-amber-600 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlayWord();
+                  }}
+                  disabled={isSpeaking}
+                  className={`p-3 rounded-full transition-all ${
+                    isSpeaking
+                      ? 'bg-blue-100 text-blue-400'
+                      : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-110 active:scale-95'
+                  }`}
                 >
-                  Show Me How to Say It
-                </button>
-              ) : (
-                <button
-                  onClick={handleNextWord}
-                  className="w-full py-4 bg-blue-500 text-white rounded-xl font-semibold text-lg hover:bg-blue-600 transition-colors"
-                >
-                  {currentWordIndex < vocabWords.length - 1 ? 'Next Word →' : 'Ready to Read!'}
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                  </svg>
                 </button>
               )}
             </div>
 
-            {/* Encouragement */}
-            <p className="text-center text-gray-500 text-sm mt-6">
-              {wordHasAudio ? 'Tap the speaker to hear the word! 🔊' : 'Practice saying this word out loud!'}
-            </p>
-          </div>
-        ) : (
-          /* Completion screen */
-          <div className="w-full max-w-md text-center">
-            <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8">
-              <div className="text-6xl mb-4 animate-bounce">🌟</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Great Job!</h2>
-              <p className="text-gray-500 mb-6">
-                You practiced {vocabWords.length} new words!
-              </p>
+            {/* The word - BIG and clear */}
+            <h2 className={`text-6xl md:text-7xl font-bold text-gray-800 mb-8 transition-transform ${showSpeakAnimation ? 'scale-110' : ''}`}>
+              {currentWord}
+            </h2>
 
-              <div className="flex flex-wrap justify-center gap-2 mb-6">
-                {vocabWords.map((word, i) => {
-                  const canPlay = hasAudio(word);
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => canPlay && speak(word)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                        canPlay
-                          ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer'
-                          : 'bg-gray-100 text-gray-500 cursor-default'
-                      }`}
-                    >
-                      {canPlay && '🔊 '}{word}
-                    </button>
-                  );
-                })}
+            {/* Sound waves animation when speaking */}
+            {isSpeaking && (
+              <div className="flex justify-center gap-1 mb-6">
+                <div className="w-1 h-4 bg-blue-400 rounded-full animate-sound-wave" style={{ animationDelay: '0ms' }} />
+                <div className="w-1 h-6 bg-blue-500 rounded-full animate-sound-wave" style={{ animationDelay: '100ms' }} />
+                <div className="w-1 h-8 bg-blue-400 rounded-full animate-sound-wave" style={{ animationDelay: '200ms' }} />
+                <div className="w-1 h-6 bg-blue-500 rounded-full animate-sound-wave" style={{ animationDelay: '300ms' }} />
+                <div className="w-1 h-4 bg-blue-400 rounded-full animate-sound-wave" style={{ animationDelay: '400ms' }} />
               </div>
+            )}
 
-              <button
-                onClick={handleStartReading}
-                className="w-full py-4 bg-green-500 text-white rounded-xl font-semibold text-lg hover:bg-green-600 transition-colors"
-              >
-                Start Reading! 📖
-              </button>
+            {/* Tap hint */}
+            <div className="flex items-center justify-center gap-2 text-gray-400">
+              <span>Tap anywhere for next word</span>
+              <svg className="w-5 h-5 animate-bounce-x" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </div>
           </div>
-        )}
+
+          {/* No audio notice */}
+          {!wordHasAudio && (
+            <p className="text-center text-gray-400 text-sm mt-4">
+              No audio for this word.{' '}
+              <a href="/admin" className="text-blue-500 hover:underline">Add in Admin</a>
+            </p>
+          )}
+        </div>
       </main>
+
+      {/* Bottom action */}
+      <div className="p-4 relative z-10">
+        <button
+          onClick={handleNext}
+          className="w-full max-w-md mx-auto block py-4 bg-blue-500 text-white rounded-2xl font-semibold text-lg hover:bg-blue-600 transition-colors shadow-lg"
+        >
+          {currentWordIndex < vocabWords.length - 1 ? 'Next →' : 'Start Reading! 📖'}
+        </button>
+      </div>
 
       <style jsx>{`
         @keyframes sound-wave {
@@ -299,12 +212,12 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
         .animate-sound-wave {
           animation: sound-wave 0.4s ease-in-out infinite;
         }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes bounce-x {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(4px); }
         }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
+        .animate-bounce-x {
+          animation: bounce-x 1s ease-in-out infinite;
         }
       `}</style>
     </div>
