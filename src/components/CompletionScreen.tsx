@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { type Story } from '@/lib/stories';
 import { loadProgress, recordBookComplete, type GameProgress } from '@/lib/gameState';
 import Fireworks from './illustrations/Fireworks';
+import BookCompleteCharacter from './illustrations/BookCompleteCharacter';
 
 interface CompletionScreenProps {
   story: Story;
@@ -46,6 +47,9 @@ export default function CompletionScreen({
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Fireworks celebration */}
       <Fireworks show={showFireworks} />
+
+      {/* Story character celebration */}
+      <BookCompleteCharacter storyId={story.id} />
 
       {/* Trophy animation */}
       <div className="text-8xl mb-6 animate-bounce-slow">

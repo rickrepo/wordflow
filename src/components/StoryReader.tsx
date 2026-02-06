@@ -6,6 +6,7 @@ import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phon
 import { recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
 import StoryScene from './illustrations/StoryScene';
 import PageTransition from './illustrations/PageTransition';
+import BackgroundCharacter from './illustrations/BackgroundCharacter';
 
 interface StoryReaderProps {
   story: Story;
@@ -194,6 +195,9 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     >
       {/* Full-screen immersive story scene */}
       <StoryScene storyId={story.id} />
+
+      {/* Subtle background character animation */}
+      <BackgroundCharacter storyId={story.id} />
 
       {/* Clean header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-gray-100 relative z-10">
