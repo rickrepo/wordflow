@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
+import { useSpeech } from '@/lib/useSpeech';
 import StoryScene from './illustrations/StoryScene';
 
 interface VocabPrepProps {
@@ -35,7 +36,9 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [revealedWords, setRevealedWords] = useState<Set<number>>(new Set());
   const [isComplete, setIsComplete] = useState(false);
+  const [showSpeakAnimation, setShowSpeakAnimation] = useState(false);
 
+  const { speak, speakSlowly, isSpeaking, isSupported } = useSpeech();
   const gradeInfo = gradeLevelInfo[gradeLevel];
   const vocabWords = getKeyWords(story, gradeLevel);
 
@@ -50,8 +53,28 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
   const syllables = currentWord ? getSyllables(currentWord) : [];
   const hint = currentWord ? getAgeAppropriateHint(currentWord, gradeLevel) : '';
 
+  const handlePlayWord = () => {
+    if (currentWord) {
+      setShowSpeakAnimation(true);
+      speak(currentWord);
+      setTimeout(() => setShowSpeakAnimation(false), 1000);
+    }
+  };
+
+  const handlePlaySlowly = () => {
+    if (currentWord) {
+      setShowSpeakAnimation(true);
+      speakSlowly(currentWord);
+      setTimeout(() => setShowSpeakAnimation(false), 2000);
+    }
+  };
+
   const handleRevealWord = () => {
     setRevealedWords(prev => new Set(prev).add(currentWordIndex));
+    // Auto-play the word when revealed
+    setTimeout(() => {
+      if (currentWord) speakSlowly(currentWord);
+    }, 300);
   };
 
   const handleNextWord = () => {
@@ -123,11 +146,53 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
                 Word {currentWordIndex + 1} of {vocabWords.length}
               </p>
 
-              {/* The word */}
+              {/* The word with speaker */}
               <div className="mb-6">
-                <h2 className="text-5xl md:text-6xl font-bold text-gray-800 mb-4">
-                  {currentWord}
-                </h2>
+                <div className="relative inline-block">
+                  <h2 className={`text-5xl md:text-6xl font-bold text-gray-800 mb-4 transition-transform ${showSpeakAnimation ? 'scale-110' : ''}`}>
+                    {currentWord}
+                  </h2>
+
+                  {/* Sound waves animation when speaking */}
+                  {isSpeaking && (
+                    <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex gap-1">
+                      <div className="w-1 h-4 bg-blue-400 rounded-full animate-sound-wave" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1 h-6 bg-blue-500 rounded-full animate-sound-wave" style={{ animationDelay: '100ms' }} />
+                      <div className="w-1 h-4 bg-blue-400 rounded-full animate-sound-wave" style={{ animationDelay: '200ms' }} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Play button - always visible */}
+                {isSupported && (
+                  <div className="flex justify-center gap-3 mb-4">
+                    <button
+                      onClick={handlePlayWord}
+                      disabled={isSpeaking}
+                      className={`flex items-center gap-2 px-5 py-3 rounded-full font-medium transition-all ${
+                        isSpeaking
+                          ? 'bg-blue-100 text-blue-400'
+                          : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105 active:scale-95'
+                      }`}
+                    >
+                      <span className="text-xl">🔊</span>
+                      <span>Play</span>
+                    </button>
+
+                    <button
+                      onClick={handlePlaySlowly}
+                      disabled={isSpeaking}
+                      className={`flex items-center gap-2 px-5 py-3 rounded-full font-medium transition-all ${
+                        isSpeaking
+                          ? 'bg-purple-100 text-purple-400'
+                          : 'bg-purple-500 text-white hover:bg-purple-600 hover:scale-105 active:scale-95'
+                      }`}
+                    >
+                      <span className="text-xl">🐢</span>
+                      <span>Slow</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Syllable breakdown */}
                 {revealedWords.has(currentWordIndex) && (
@@ -172,14 +237,14 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
 
             {/* Encouragement */}
             <p className="text-center text-gray-500 text-sm mt-6">
-              Learning these words will help you read the story!
+              Tap the speaker to hear the word! 🔊
             </p>
           </div>
         ) : (
           /* Completion screen */
           <div className="w-full max-w-md text-center">
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8">
-              <div className="text-6xl mb-4">🌟</div>
+              <div className="text-6xl mb-4 animate-bounce">🌟</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Great Job!</h2>
               <p className="text-gray-500 mb-6">
                 You practiced {vocabWords.length} new words!
@@ -187,12 +252,13 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
 
               <div className="flex flex-wrap justify-center gap-2 mb-6">
                 {vocabWords.map((word, i) => (
-                  <span
+                  <button
                     key={i}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium"
+                    onClick={() => speak(word)}
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer"
                   >
-                    {word}
-                  </span>
+                    🔊 {word}
+                  </button>
                 ))}
               </div>
 
@@ -206,6 +272,23 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
           </div>
         )}
       </main>
+
+      <style jsx>{`
+        @keyframes sound-wave {
+          0%, 100% { transform: scaleY(0.5); }
+          50% { transform: scaleY(1.5); }
+        }
+        .animate-sound-wave {
+          animation: sound-wave 0.4s ease-in-out infinite;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }
