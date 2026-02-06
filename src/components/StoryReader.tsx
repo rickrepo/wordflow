@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
 import { calculatePageStars, recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
-import { getStoryScene, positionClasses, sizeClasses, animationClasses, type SceneElement } from '@/lib/storyScenes';
+import StoryScene from './illustrations/StoryScene';
 
 interface StoryReaderProps {
   story: Story;
@@ -43,27 +43,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const pageText = story.pages[currentPage];
   const totalPages = story.pages.length;
   const isLastPage = currentPage === totalPages - 1;
-  const scene = getStoryScene(story.id);
-
-  // Render a scene element
-  const renderSceneElement = (element: SceneElement, index: number) => (
-    <div
-      key={index}
-      className={`
-        fixed pointer-events-none select-none z-0
-        ${positionClasses[element.position]}
-        ${sizeClasses[element.size]}
-        ${animationClasses[element.animation]}
-        transition-opacity duration-1000
-      `}
-      style={{
-        opacity: element.opacity,
-        animationDelay: `${element.delay}s`,
-      }}
-    >
-      {element.emoji}
-    </div>
-  );
 
   // Load progress on mount
   useEffect(() => {
@@ -195,11 +174,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
-      className={`min-h-screen bg-gradient-to-b ${scene.bgFrom} ${scene.bgVia || ''} ${scene.bgTo} flex flex-col relative overflow-hidden`}
+      className="min-h-screen flex flex-col relative overflow-hidden"
       style={{ touchAction: 'none' }}
     >
-      {/* Immersive scene elements */}
-      {scene.elements.map((element, index) => renderSceneElement(element, index))}
+      {/* Full-screen immersive story scene */}
+      <StoryScene storyId={story.id} />
+
       {/* Clean header */}
       <header className="flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-gray-100 relative z-10">
         <button
