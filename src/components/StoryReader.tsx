@@ -151,7 +151,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   // Find the next word to read for highlighting
   const nextWordIndex = wordStates.findIndex(ws => !ws.isCompleted);
 
-  // Render word - shows which word is next with a subtle indicator
+  // Render word - all words clearly readable, high contrast for learning
   const renderWord = (ws: WordState, index: number) => {
     const isNextWord = index === nextWordIndex;
 
@@ -163,14 +163,14 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         className={`
           inline-block px-2 py-1 mx-0.5 my-1 rounded-lg cursor-pointer select-none
           transition-all duration-150 ease-out relative
-          text-2xl md:text-3xl lg:text-4xl
+          text-2xl md:text-3xl lg:text-4xl font-medium
           ${ws.isActive
-            ? 'bg-blue-500 text-white scale-105 shadow-lg'
+            ? 'bg-blue-500 text-white scale-110 shadow-lg'
             : ws.isCompleted
-              ? 'bg-blue-50 text-gray-800'
+              ? 'bg-green-100 text-gray-900'
               : isNextWord
-                ? 'text-gray-700 bg-amber-50 ring-2 ring-amber-300 ring-opacity-50'
-                : 'text-gray-300'}
+                ? 'text-gray-900 bg-yellow-100 ring-2 ring-yellow-400 shadow-md'
+                : 'text-gray-800 bg-gray-50'}
         `}
       >
         {ws.cleanWord}{ws.punctuation}
@@ -178,8 +178,8 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           <span className="absolute -top-1 -right-1 text-sm">💡</span>
         )}
         {isNextWord && !ws.isActive && (
-          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-amber-500 text-xs animate-bounce">
-            ▲
+          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-yellow-500 text-sm animate-bounce">
+            👆
           </span>
         )}
       </span>
@@ -199,38 +199,38 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       {/* Subtle background character animation */}
       <BackgroundCharacter storyId={story.id} />
 
-      {/* Clean header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-gray-100 relative z-10">
+      {/* Minimal floating controls - blends with story */}
+      <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
         <button
           onClick={onBack}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/70 text-gray-600 hover:bg-white hover:text-gray-800 transition-all shadow-sm"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
 
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{story.coverEmoji}</span>
-          <div className="text-center">
-            <h1 className="text-sm font-semibold text-gray-800 leading-tight">{story.title}</h1>
-            <p className="text-xs text-gray-400">Page {currentPage + 1} of {totalPages}</p>
-          </div>
+        {/* Page indicator - small pill */}
+        <div className="flex items-center gap-1.5 bg-white/70 px-3 py-1.5 rounded-full shadow-sm">
+          <span className="text-lg">{story.coverEmoji}</span>
+          <span className="text-sm font-medium text-gray-700">{currentPage + 1}/{totalPages}</span>
         </div>
+      </div>
 
-        {/* Progress indicator */}
-        <div className="flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full">
-          <span className="text-blue-500">📖</span>
-          <span className="text-sm font-semibold text-blue-700">{currentPage + 1}/{totalPages}</span>
-        </div>
-      </header>
-
-      {/* Progress bar */}
-      <div className="h-1 bg-gray-100/50 relative z-10">
-        <div
-          className="h-full bg-blue-500 transition-all duration-500"
-          style={{ width: `${((currentPage + (pageComplete ? 1 : 0)) / totalPages) * 100}%` }}
-        />
+      {/* Progress dots at bottom */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+        {story.pages.map((_, i) => (
+          <div
+            key={i}
+            className={`rounded-full transition-all duration-300 ${
+              i === currentPage
+                ? 'w-6 h-2 bg-blue-500'
+                : i < currentPage
+                  ? 'w-2 h-2 bg-blue-400'
+                  : 'w-2 h-2 bg-white/60'
+            }`}
+          />
+        ))}
       </div>
 
       {/* Main reading area */}
@@ -243,30 +243,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
             </p>
           </div>
 
-          {/* Instruction */}
-          <p className="text-center text-gray-500 text-sm mt-6">
-            Slide your finger under each word from left to right
+          {/* Instruction - friendly */}
+          <p className="text-center text-gray-600 text-sm mt-4 bg-white/60 px-4 py-2 rounded-full inline-block">
+            Touch each word from left to right 👆
           </p>
         </div>
       </main>
-
-      {/* Footer with page dots */}
-      <footer className="px-6 py-4 flex justify-center relative z-10">
-        <div className="flex gap-1.5">
-          {story.pages.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === currentPage
-                  ? 'w-6 bg-blue-500'
-                  : i < currentPage
-                    ? 'w-1.5 bg-blue-300'
-                    : 'w-1.5 bg-gray-200'
-              }`}
-            />
-          ))}
-        </div>
-      </footer>
 
       {/* Help modal */}
       {showHelp && (
