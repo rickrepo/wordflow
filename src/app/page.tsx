@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import HomePage from '@/components/HomePage';
 import StoryLibrary from '@/components/StoryLibrary';
+import VocabPrep from '@/components/VocabPrep';
 import BookReader from '@/components/BookReader';
 import CompletionScreen from '@/components/CompletionScreen';
 import type { GradeLevel, Story } from '@/lib/stories';
 
-type AppState = 'home' | 'library' | 'reading' | 'complete';
+type AppState = 'home' | 'library' | 'vocab' | 'reading' | 'complete';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('home');
@@ -21,6 +22,10 @@ export default function App() {
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
+    setAppState('vocab'); // Go to vocab prep first
+  };
+
+  const handleVocabComplete = () => {
     setAppState('reading');
   };
 
@@ -40,7 +45,7 @@ export default function App() {
   };
 
   const handleReadAgain = () => {
-    setAppState('reading');
+    setAppState('vocab'); // Go through vocab again
   };
 
   // Render based on app state
@@ -58,6 +63,20 @@ export default function App() {
           gradeLevel={selectedGrade}
           onSelectStory={handleSelectStory}
           onBack={handleBackToHome}
+        />
+      );
+
+    case 'vocab':
+      if (!selectedGrade || !selectedStory) {
+        setAppState('home');
+        return null;
+      }
+      return (
+        <VocabPrep
+          story={selectedStory}
+          gradeLevel={selectedGrade}
+          onComplete={handleVocabComplete}
+          onBack={handleBackToLibrary}
         />
       );
 
