@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { loadProgress, recordBookComplete, type GameProgress } from '@/lib/gameState';
+import Fireworks from './illustrations/Fireworks';
 
 interface CompletionScreenProps {
   story: Story;
@@ -23,7 +24,16 @@ export default function CompletionScreen({
 }: CompletionScreenProps) {
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [isNewBook, setIsNewBook] = useState(false);
+  const [showFireworks, setShowFireworks] = useState(true);
   const gradeInfo = gradeLevelInfo[gradeLevel];
+
+  // Stop fireworks after a few seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowFireworks(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const current = loadProgress();
@@ -38,7 +48,10 @@ export default function CompletionScreen({
   }, [story.id]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Fireworks celebration */}
+      <Fireworks show={showFireworks} />
+
       {/* Trophy animation */}
       <div className="text-8xl mb-6 animate-bounce-slow">
         🏆
