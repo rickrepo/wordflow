@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 interface BackgroundCharacterProps {
   storyId: string;
 }
@@ -27,11 +29,32 @@ function getCharacterForStory(storyId: string): string {
 }
 
 // Subtle background character that moves gently during reading
+// Click for a fun surprise!
 export default function BackgroundCharacter({ storyId }: BackgroundCharacterProps) {
   const character = getCharacterForStory(storyId);
+  const [isClicked, setIsClicked] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+
+  const handleClick = () => {
+    if (isClicked) return; // Prevent spam clicking
+    setIsClicked(true);
+    setClickCount(prev => prev + 1);
+    // Reset after animation
+    setTimeout(() => setIsClicked(false), 1500);
+  };
+
+  // Different silly reactions based on click count
+  const getReactionClass = () => {
+    if (!isClicked) return '';
+    const reactions = ['animate-silly-spin', 'animate-silly-bounce', 'animate-silly-flip', 'animate-silly-shake', 'animate-silly-grow'];
+    return reactions[clickCount % reactions.length];
+  };
 
   return (
-    <div className="fixed bottom-4 right-4 z-5 pointer-events-none opacity-40">
+    <div
+      className={`fixed bottom-4 right-4 z-5 cursor-pointer transition-opacity duration-300 ${isClicked ? 'opacity-100' : 'opacity-40 hover:opacity-70'} ${getReactionClass()}`}
+      onClick={handleClick}
+    >
       <svg className="absolute w-0 h-0">
         <defs>
           <filter id="bgPaperRough" x="-20%" y="-20%" width="140%" height="140%">
@@ -416,6 +439,59 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
         }
         .animate-robot-leg { animation: robot-leg 0.5s steps(2) infinite; }
         .animate-robot-leg-alt { animation: robot-leg 0.5s steps(2) infinite 0.25s; }
+
+        /* Silly click reactions */
+        @keyframes silly-spin {
+          0% { transform: rotate(0deg) scale(1); }
+          25% { transform: rotate(180deg) scale(1.3); }
+          50% { transform: rotate(360deg) scale(1); }
+          75% { transform: rotate(540deg) scale(1.2); }
+          100% { transform: rotate(720deg) scale(1); }
+        }
+        .animate-silly-spin { animation: silly-spin 1s ease-in-out; }
+
+        @keyframes silly-bounce {
+          0%, 100% { transform: translateY(0) scale(1); }
+          15% { transform: translateY(-60px) scale(1.1); }
+          30% { transform: translateY(0) scale(0.9, 1.1); }
+          45% { transform: translateY(-40px) scale(1.05); }
+          60% { transform: translateY(0) scale(0.95, 1.05); }
+          75% { transform: translateY(-20px) scale(1); }
+          90% { transform: translateY(0) scale(1); }
+        }
+        .animate-silly-bounce { animation: silly-bounce 1.2s ease-out; }
+
+        @keyframes silly-flip {
+          0% { transform: perspective(400px) rotateX(0deg) scale(1); }
+          40% { transform: perspective(400px) rotateX(180deg) scale(1.2); }
+          70% { transform: perspective(400px) rotateX(360deg) scale(0.9); }
+          100% { transform: perspective(400px) rotateX(360deg) scale(1); }
+        }
+        .animate-silly-flip { animation: silly-flip 1s ease-in-out; }
+
+        @keyframes silly-shake {
+          0%, 100% { transform: translateX(0) rotate(0deg); }
+          10% { transform: translateX(-15px) rotate(-10deg); }
+          20% { transform: translateX(15px) rotate(10deg); }
+          30% { transform: translateX(-12px) rotate(-8deg); }
+          40% { transform: translateX(12px) rotate(8deg); }
+          50% { transform: translateX(-8px) rotate(-5deg); }
+          60% { transform: translateX(8px) rotate(5deg); }
+          70% { transform: translateX(-5px) rotate(-3deg); }
+          80% { transform: translateX(5px) rotate(3deg); }
+          90% { transform: translateX(-2px) rotate(-1deg); }
+        }
+        .animate-silly-shake { animation: silly-shake 0.8s ease-out; }
+
+        @keyframes silly-grow {
+          0% { transform: scale(1); }
+          20% { transform: scale(2) rotate(5deg); }
+          40% { transform: scale(2.2) rotate(-5deg); }
+          60% { transform: scale(1.8) rotate(3deg); }
+          80% { transform: scale(1.2) rotate(-2deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+        .animate-silly-grow { animation: silly-grow 1.3s ease-out; }
       `}</style>
     </div>
   );
