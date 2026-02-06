@@ -22,7 +22,7 @@ export default function App() {
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
-    setAppState('vocab'); // Go to vocab prep first
+    setAppState('reading'); // Go straight to reading
   };
 
   const handleVocabComplete = () => {
@@ -45,7 +45,7 @@ export default function App() {
   };
 
   const handleReadAgain = () => {
-    setAppState('vocab'); // Start from vocab prep when reading again
+    setAppState('reading'); // Go straight to reading again
   };
 
   switch (appState) {

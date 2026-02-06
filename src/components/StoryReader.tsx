@@ -36,8 +36,11 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [pageComplete, setPageComplete] = useState(false);
   const [showPageTransition, setShowPageTransition] = useState(false);
   const [progress, setProgress] = useState<GameProgress | null>(null);
+  const [swipeX, setSwipeX] = useState<number | null>(null);
+  const [swipeY, setSwipeY] = useState<number | null>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
 
   const pageText = story.pages[currentPage];
   const totalPages = story.pages.length;
@@ -63,6 +66,8 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     })));
     setActiveWordIndex(null);
     setPageComplete(false);
+    setSwipeX(null);
+    setSwipeY(null);
     wordRefs.current = [];
   }, [pageText, currentPage]);
 
@@ -91,8 +96,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
 
-    const y = e.clientY - 50;
     const x = e.clientX;
+    const y = e.clientY;
+
+    // Update swipe line position
+    setSwipeX(x);
+    setSwipeY(y);
 
     let foundIndex: number | null = null;
 
@@ -134,6 +143,11 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates]);
 
+  const handlePointerUp = useCallback(() => {
+    setSwipeX(null);
+    setSwipeY(null);
+  }, []);
+
   // Word tap for help
   const handleWordTap = (index: number) => {
     const ws = wordStates[index];
@@ -151,7 +165,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   // Find the next word to read for highlighting
   const nextWordIndex = wordStates.findIndex(ws => !ws.isCompleted);
 
-  // Render word - all words clearly readable, high contrast for learning
+  // Render word - natural text flow, no extra spacing
   const renderWord = (ws: WordState, index: number) => {
     const isNextWord = index === nextWordIndex;
 
@@ -161,35 +175,43 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         ref={el => { wordRefs.current[index] = el; }}
         onClick={() => handleWordTap(index)}
         className={`
-          inline-block px-2 py-1 mx-0.5 my-1 rounded-lg cursor-pointer select-none
-          transition-all duration-150 ease-out relative
-          text-2xl md:text-3xl lg:text-4xl font-medium
+          inline cursor-pointer select-none
+          transition-all duration-150 ease-out
+          text-3xl md:text-4xl lg:text-5xl
           ${ws.isActive
-            ? 'bg-blue-500 text-white scale-110 shadow-lg'
+            ? 'text-blue-600 font-bold swipe-word-active'
             : ws.isCompleted
-              ? 'bg-green-100 text-gray-900'
+              ? 'text-gray-800'
               : isNextWord
-                ? 'text-gray-900 bg-yellow-100 ring-2 ring-yellow-400 shadow-md'
-                : 'text-gray-800 bg-gray-50'}
+                ? 'text-gray-800 font-semibold swipe-word-next'
+                : 'text-gray-400'}
         `}
       >
         {ws.cleanWord}{ws.punctuation}
         {ws.isStruggling && !ws.isActive && (
-          <span className="absolute -top-1 -right-1 text-sm">💡</span>
-        )}
-        {isNextWord && !ws.isActive && (
-          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-yellow-500 text-sm animate-bounce">
-            👆
-          </span>
+          <span className="text-sm align-super">💡</span>
         )}
       </span>
     );
   };
 
+  // Calculate the swipe line position relative to the text container
+  const getSwipeLine = () => {
+    if (swipeX === null || swipeY === null || !textRef.current) return null;
+    const textRect = textRef.current.getBoundingClientRect();
+    // Only show line when pointer is within the text area (with some vertical padding)
+    if (swipeY < textRect.top - 40 || swipeY > textRect.bottom + 40) return null;
+    return { x: swipeX, y: swipeY };
+  };
+
+  const swipeLine = getSwipeLine();
+
   return (
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{ touchAction: 'none' }}
     >
@@ -199,54 +221,62 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       {/* Subtle background character animation */}
       <BackgroundCharacter storyId={story.id} />
 
-      {/* Minimal floating controls - blends with story */}
-      <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
-        <button
-          onClick={onBack}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/70 text-gray-600 hover:bg-white hover:text-gray-800 transition-all shadow-sm"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
+      {/* Tiny back button - top left, unobtrusive */}
+      <button
+        onClick={onBack}
+        className="absolute top-3 left-3 w-8 h-8 rounded-full flex items-center justify-center bg-black/20 text-white/80 hover:bg-black/30 transition-all z-10"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
 
-        {/* Page indicator - small pill */}
-        <div className="flex items-center gap-1.5 bg-white/70 px-3 py-1.5 rounded-full shadow-sm">
-          <span className="text-lg">{story.coverEmoji}</span>
-          <span className="text-sm font-medium text-gray-700">{currentPage + 1}/{totalPages}</span>
-        </div>
-      </div>
-
-      {/* Progress dots at bottom */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-        {story.pages.map((_, i) => (
-          <div
-            key={i}
-            className={`rounded-full transition-all duration-300 ${
-              i === currentPage
-                ? 'w-6 h-2 bg-blue-500'
-                : i < currentPage
-                  ? 'w-2 h-2 bg-blue-400'
-                  : 'w-2 h-2 bg-white/60'
-            }`}
-          />
-        ))}
-      </div>
-
-      {/* Main reading area */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative z-10">
-        <div className="w-full max-w-3xl">
-          {/* Text container */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 md:p-10">
-            <p className="text-center leading-relaxed font-medium">
-              {wordStates.map((ws, i) => renderWord(ws, i))}
+      {/* Main reading area - centered */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12 relative z-10">
+        <div className="w-full max-w-2xl">
+          {/* Text container - the book page */}
+          <div ref={textRef} className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 px-8 py-10 md:px-12 md:py-14">
+            <p className="text-center leading-loose">
+              {wordStates.map((ws, i) => (
+                <span key={i}>
+                  {renderWord(ws, i)}
+                  {i < wordStates.length - 1 && ' '}
+                </span>
+              ))}
             </p>
+
+            {/* Swipe guide line - shows under the text where finger is */}
+            {swipeLine && (
+              <div
+                className="swipe-line pointer-events-none"
+                style={{
+                  position: 'fixed',
+                  left: swipeLine.x - 30,
+                  top: swipeLine.y + 8,
+                  width: 60,
+                  zIndex: 50,
+                }}
+              />
+            )}
           </div>
 
-          {/* Instruction - friendly */}
-          <p className="text-center text-gray-600 text-sm mt-4 bg-white/60 px-4 py-2 rounded-full inline-block">
-            Touch each word from left to right 👆
-          </p>
+          {/* Page indicator - subtle, below the card */}
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <div className="flex gap-1.5">
+              {story.pages.map((_, i) => (
+                <div
+                  key={i}
+                  className={`rounded-full transition-all duration-300 ${
+                    i === currentPage
+                      ? 'w-6 h-2 bg-white/90'
+                      : i < currentPage
+                        ? 'w-2 h-2 bg-white/60'
+                        : 'w-2 h-2 bg-white/30'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </main>
 
@@ -302,6 +332,33 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         storyId={story.id}
         onComplete={handlePageTransitionComplete}
       />
+
+      <style jsx>{`
+        .swipe-line {
+          height: 4px;
+          background: linear-gradient(90deg, transparent, #3B82F6, #3B82F6, transparent);
+          border-radius: 2px;
+          box-shadow: 0 0 12px rgba(59, 130, 246, 0.5), 0 0 4px rgba(59, 130, 246, 0.3);
+          animation: swipe-glow 0.8s ease-in-out infinite alternate;
+        }
+        @keyframes swipe-glow {
+          from { opacity: 0.7; box-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
+          to { opacity: 1; box-shadow: 0 0 16px rgba(59, 130, 246, 0.6); }
+        }
+        .swipe-word-active {
+          text-decoration: underline;
+          text-decoration-color: #3B82F6;
+          text-underline-offset: 6px;
+          text-decoration-thickness: 3px;
+        }
+        .swipe-word-next {
+          text-decoration: underline;
+          text-decoration-color: #FCD34D;
+          text-underline-offset: 6px;
+          text-decoration-thickness: 2px;
+          text-decoration-style: dashed;
+        }
+      `}</style>
     </div>
   );
 }
