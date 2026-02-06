@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
 import { calculatePageStars, recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
+import { getStoryScene, positionClasses, sizeClasses, animationClasses, type SceneElement } from '@/lib/storyScenes';
 
 interface StoryReaderProps {
   story: Story;
@@ -42,6 +43,27 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const pageText = story.pages[currentPage];
   const totalPages = story.pages.length;
   const isLastPage = currentPage === totalPages - 1;
+  const scene = getStoryScene(story.id);
+
+  // Render a scene element
+  const renderSceneElement = (element: SceneElement, index: number) => (
+    <div
+      key={index}
+      className={`
+        fixed pointer-events-none select-none z-0
+        ${positionClasses[element.position]}
+        ${sizeClasses[element.size]}
+        ${animationClasses[element.animation]}
+        transition-opacity duration-1000
+      `}
+      style={{
+        opacity: element.opacity,
+        animationDelay: `${element.delay}s`,
+      }}
+    >
+      {element.emoji}
+    </div>
+  );
 
   // Load progress on mount
   useEffect(() => {
@@ -173,11 +195,13 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
-      className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col"
+      className={`min-h-screen bg-gradient-to-b ${scene.bgFrom} ${scene.bgVia || ''} ${scene.bgTo} flex flex-col relative overflow-hidden`}
       style={{ touchAction: 'none' }}
     >
+      {/* Immersive scene elements */}
+      {scene.elements.map((element, index) => renderSceneElement(element, index))}
       {/* Clean header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
+      <header className="flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-sm border-b border-gray-100 relative z-10">
         <button
           onClick={onBack}
           className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -203,7 +227,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       </header>
 
       {/* Progress bar */}
-      <div className="h-1 bg-gray-100">
+      <div className="h-1 bg-gray-100/50 relative z-10">
         <div
           className="h-full bg-blue-500 transition-all duration-500"
           style={{ width: `${((currentPage + (pageComplete ? 1 : 0)) / totalPages) * 100}%` }}
@@ -211,10 +235,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       </div>
 
       {/* Main reading area */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative z-10">
         <div className="w-full max-w-3xl">
           {/* Text container */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-10">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 md:p-10">
             <p className="text-center leading-relaxed font-medium">
               {wordStates.map((ws, i) => renderWord(ws, i))}
             </p>
@@ -228,7 +252,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       </main>
 
       {/* Footer with page dots */}
-      <footer className="px-6 py-4 flex justify-center">
+      <footer className="px-6 py-4 flex justify-center relative z-10">
         <div className="flex gap-1.5">
           {story.pages.map((_, i) => (
             <div
