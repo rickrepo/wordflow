@@ -4,7 +4,7 @@ import { useState } from 'react';
 import HomePage from '@/components/HomePage';
 import StoryLibrary from '@/components/StoryLibrary';
 import VocabPrep from '@/components/VocabPrep';
-import BookReader from '@/components/BookReader';
+import StoryWorld from '@/components/StoryWorld';
 import CompletionScreen from '@/components/CompletionScreen';
 import type { GradeLevel, Story } from '@/lib/stories';
 
@@ -86,7 +86,7 @@ export default function App() {
         return null;
       }
       return (
-        <BookReader
+        <StoryWorld
           story={selectedStory}
           gradeLevel={selectedGrade}
           onBack={handleBackToLibrary}
