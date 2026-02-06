@@ -1,98 +1,91 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { getAudioForWord } from './audioManager';
 
-interface UseSpeechOptions {
-  rate?: number;
-  pitch?: number;
-  voice?: string;
-}
-
-export function useSpeech(options: UseSpeechOptions = {}) {
-  const { rate = 0.8, pitch = 1.0 } = options;
+export function useSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    setIsSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);
+  const speak = useCallback((word: string) => {
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    const entry = getAudioForWord(word);
+    if (!entry) {
+      // No custom audio available
+      return false;
+    }
+
+    try {
+      const audio = new Audio(entry.audioData);
+      audioRef.current = audio;
+
+      audio.onplay = () => setIsSpeaking(true);
+      audio.onended = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+
+      audio.play();
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
-  const speak = useCallback((text: string) => {
-    if (!isSupported) return;
-
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
-    utterance.pitch = pitch;
-
-    // Try to find a child-friendly voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v =>
-      v.name.includes('Samantha') ||
-      v.name.includes('Karen') ||
-      v.name.includes('Female') ||
-      v.lang.startsWith('en')
-    ) || voices[0];
-
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+  const speakSlowly = useCallback((word: string) => {
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  }, [isSupported, rate, pitch]);
-
-  const speakSlowly = useCallback((text: string) => {
-    if (!isSupported) return;
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.5; // Extra slow for learning
-    utterance.pitch = pitch;
-
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v =>
-      v.name.includes('Samantha') ||
-      v.name.includes('Karen') ||
-      v.name.includes('Female') ||
-      v.lang.startsWith('en')
-    ) || voices[0];
-
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    const entry = getAudioForWord(word);
+    if (!entry) {
+      return false;
     }
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    try {
+      const audio = new Audio(entry.audioData);
+      audio.playbackRate = 0.6; // Slow playback
+      audioRef.current = audio;
 
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
-  }, [isSupported, pitch]);
+      audio.onplay = () => setIsSpeaking(true);
+      audio.onended = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+
+      audio.play();
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const stop = useCallback(() => {
-    if (isSupported) {
-      window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
       setIsSpeaking(false);
     }
-  }, [isSupported]);
+  }, []);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (isSupported) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [isSupported]);
+  const hasAudio = useCallback((word: string) => {
+    return getAudioForWord(word) !== null;
+  }, []);
 
-  return { speak, speakSlowly, stop, isSpeaking, isSupported };
+  return { speak, speakSlowly, stop, isSpeaking, hasAudio };
 }

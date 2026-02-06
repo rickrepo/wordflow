@@ -14,7 +14,6 @@ export default function App() {
   const [appState, setAppState] = useState<AppState>('home');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
-  const [starsEarned, setStarsEarned] = useState(0);
 
   const handleSelectGrade = (grade: GradeLevel) => {
     setSelectedGrade(grade);
@@ -33,23 +32,19 @@ export default function App() {
   const handleBackToHome = () => {
     setSelectedGrade(null);
     setSelectedStory(null);
-    setStarsEarned(0);
     setAppState('home');
   };
 
   const handleBackToLibrary = () => {
     setSelectedStory(null);
-    setStarsEarned(0);
     setAppState('library');
   };
 
-  const handleComplete = (stars: number) => {
-    setStarsEarned(stars);
+  const handleComplete = () => {
     setAppState('complete');
   };
 
   const handleReadAgain = () => {
-    setStarsEarned(0);
     setAppState('vocab'); // Start from vocab prep when reading again
   };
 
@@ -106,8 +101,6 @@ export default function App() {
       return (
         <CompletionScreen
           story={selectedStory}
-          gradeLevel={selectedGrade}
-          starsEarned={starsEarned}
           onReadAgain={handleReadAgain}
           onChooseAnother={handleBackToLibrary}
           onHome={handleBackToHome}
