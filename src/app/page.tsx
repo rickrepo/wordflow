@@ -3,17 +3,17 @@
 import { useState } from 'react';
 import HomePage from '@/components/HomePage';
 import StoryLibrary from '@/components/StoryLibrary';
-import VocabPrep from '@/components/VocabPrep';
-import StoryWorld from '@/components/StoryWorld';
+import StoryReader from '@/components/StoryReader';
 import CompletionScreen from '@/components/CompletionScreen';
 import type { GradeLevel, Story } from '@/lib/stories';
 
-type AppState = 'home' | 'library' | 'vocab' | 'reading' | 'complete';
+type AppState = 'home' | 'library' | 'reading' | 'complete';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>('home');
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [starsEarned, setStarsEarned] = useState(0);
 
   const handleSelectGrade = (grade: GradeLevel) => {
     setSelectedGrade(grade);
@@ -22,33 +22,32 @@ export default function App() {
 
   const handleSelectStory = (story: Story) => {
     setSelectedStory(story);
-    setAppState('vocab'); // Go to vocab prep first
-  };
-
-  const handleVocabComplete = () => {
     setAppState('reading');
   };
 
   const handleBackToHome = () => {
     setSelectedGrade(null);
     setSelectedStory(null);
+    setStarsEarned(0);
     setAppState('home');
   };
 
   const handleBackToLibrary = () => {
     setSelectedStory(null);
+    setStarsEarned(0);
     setAppState('library');
   };
 
-  const handleComplete = () => {
+  const handleComplete = (stars: number) => {
+    setStarsEarned(stars);
     setAppState('complete');
   };
 
   const handleReadAgain = () => {
-    setAppState('vocab'); // Go through vocab again
+    setStarsEarned(0);
+    setAppState('reading');
   };
 
-  // Render based on app state
   switch (appState) {
     case 'home':
       return <HomePage onSelectGrade={handleSelectGrade} />;
@@ -66,27 +65,13 @@ export default function App() {
         />
       );
 
-    case 'vocab':
-      if (!selectedGrade || !selectedStory) {
-        setAppState('home');
-        return null;
-      }
-      return (
-        <VocabPrep
-          story={selectedStory}
-          gradeLevel={selectedGrade}
-          onComplete={handleVocabComplete}
-          onBack={handleBackToLibrary}
-        />
-      );
-
     case 'reading':
       if (!selectedGrade || !selectedStory) {
         setAppState('home');
         return null;
       }
       return (
-        <StoryWorld
+        <StoryReader
           story={selectedStory}
           gradeLevel={selectedGrade}
           onBack={handleBackToLibrary}
@@ -103,6 +88,7 @@ export default function App() {
         <CompletionScreen
           story={selectedStory}
           gradeLevel={selectedGrade}
+          starsEarned={starsEarned}
           onReadAgain={handleReadAgain}
           onChooseAnother={handleBackToLibrary}
           onHome={handleBackToHome}
