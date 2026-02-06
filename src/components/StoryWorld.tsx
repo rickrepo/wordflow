@@ -22,29 +22,43 @@ interface WordState {
   isStruggling: boolean;
 }
 
-// Animated elements for different themes
-const themeElements: Record<string, { emoji: string[]; colors: string[] }> = {
-  animals: {
-    emoji: ['🦋', '🐦', '🌸', '🌺', '🍃', '🌻', '☁️'],
-    colors: ['from-green-400 via-emerald-500 to-teal-600', 'from-sky-300 to-green-400'],
-  },
-  adventure: {
-    emoji: ['⭐', '🌟', '✨', '💫', '🌙', '☁️', '🎈'],
-    colors: ['from-orange-400 via-pink-500 to-purple-600', 'from-yellow-300 to-orange-400'],
-  },
-  fantasy: {
-    emoji: ['✨', '🦄', '🌈', '⭐', '🔮', '🌙', '💜'],
-    colors: ['from-purple-500 via-pink-500 to-rose-500', 'from-indigo-400 to-purple-500'],
-  },
-  nature: {
-    emoji: ['🌿', '🌻', '🦋', '☀️', '🌈', '💧', '🌸'],
-    colors: ['from-cyan-400 via-teal-500 to-green-600', 'from-blue-300 to-cyan-400'],
-  },
-  friendship: {
-    emoji: ['💕', '🌟', '🎀', '🌸', '💫', '🦋', '✨'],
-    colors: ['from-pink-400 via-rose-500 to-red-500', 'from-yellow-300 to-pink-400'],
-  },
+// Scene elements based on story content keywords
+const sceneElements: Record<string, string[]> = {
+  cat: ['🐱', '🧶', '🐾'],
+  dog: ['🐕', '🦴', '🐾'],
+  ball: ['⚽', '🎾', '🏀'],
+  frog: ['🐸', '🪷', '💧'],
+  fish: ['🐟', '🐠', '🫧'],
+  sun: ['☀️', '🌤️', '⛅'],
+  dragon: ['🐉', '🔥', '⚔️'],
+  rainbow: ['🌈', '☁️', '✨'],
+  puppy: ['🐶', '🦴', '❤️'],
+  space: ['🚀', '🌟', '🪐'],
+  ocean: ['🌊', '🐚', '🦀'],
+  tree: ['🌳', '🍃', '🌲'],
+  forest: ['🌲', '🦌', '🍄'],
+  bird: ['🐦', '🪺', '🌸'],
+  star: ['⭐', '🌟', '✨'],
+  moon: ['🌙', '⭐', '🌠'],
+  flower: ['🌸', '🌺', '🌻'],
+  garden: ['🌷', '🦋', '🌻'],
+  castle: ['🏰', '👑', '⚔️'],
+  princess: ['👸', '👑', '🏰'],
+  robot: ['🤖', '⚙️', '💡'],
+  school: ['🏫', '📚', '✏️'],
+  mystery: ['🔍', '🔎', '❓'],
 };
+
+// Get scene decorations based on story title
+function getSceneDecorations(title: string): string[] {
+  const lowerTitle = title.toLowerCase();
+  for (const [keyword, emojis] of Object.entries(sceneElements)) {
+    if (lowerTitle.includes(keyword)) {
+      return emojis;
+    }
+  }
+  return ['✨', '🌟', '💫'];
+}
 
 const STRUGGLE_THRESHOLD = 3;
 
@@ -54,27 +68,14 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [showPageComplete, setShowPageComplete] = useState(false);
   const [helpWord, setHelpWord] = useState<{ word: string; index: number } | null>(null);
-  const [floatingElements, setFloatingElements] = useState<{ id: number; emoji: string; x: number; delay: number }[]>([]);
-  const [magicTrail, setMagicTrail] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const trailId = useRef(0);
 
   const gradeInfo = gradeLevelInfo[gradeLevel];
   const pageText = story.pages[currentPage];
   const totalPages = story.pages.length;
-  const theme = themeElements[story.theme] || themeElements.adventure;
-
-  // Generate floating elements for this page
-  useEffect(() => {
-    const elements = [...Array(12)].map((_, i) => ({
-      id: i,
-      emoji: theme.emoji[i % theme.emoji.length],
-      x: Math.random() * 100,
-      delay: Math.random() * 5,
-    }));
-    setFloatingElements(elements);
-  }, [currentPage, theme.emoji]);
+  const decorations = getSceneDecorations(story.title);
 
   // Parse words from current page
   useEffect(() => {
@@ -106,21 +107,12 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
     }
   }, [wordStates]);
 
-  // Add magic trail effect
-  const addTrail = useCallback((x: number, y: number) => {
-    const id = trailId.current++;
-    setMagicTrail(prev => [...prev.slice(-15), { id, x, y }]);
-  }, []);
-
-  // Handle pointer/touch move
+  // Handle pointer/touch move - simplified, no trail
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || helpWord) return;
 
-    const y = e.clientY - 70;
+    const y = e.clientY - 60;
     const x = e.clientX;
-
-    // Add trail
-    addTrail(e.clientX, e.clientY);
 
     let foundIndex: number | null = null;
 
@@ -128,10 +120,10 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
       if (!ref) return;
       const rect = ref.getBoundingClientRect();
       if (
-        x >= rect.left - 20 &&
-        x <= rect.right + 20 &&
-        y >= rect.top - 30 &&
-        y <= rect.bottom + 30
+        x >= rect.left - 15 &&
+        x <= rect.right + 15 &&
+        y >= rect.top - 25 &&
+        y <= rect.bottom + 25
       ) {
         foundIndex = index;
       }
@@ -158,7 +150,7 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
       setActiveWordIndex(null);
       setWordStates(prev => prev.map(ws => ({ ...ws, isActive: false })));
     }
-  }, [activeWordIndex, addTrail, helpWord]);
+  }, [activeWordIndex, helpWord]);
 
   // Handle word tap for help
   const handleWordTap = (index: number) => {
@@ -168,22 +160,30 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
     }
   };
 
-  // Navigate pages
+  // Navigate pages with smooth transition
   const goToNextPage = () => {
-    if (currentPage < story.pages.length - 1) {
-      setCurrentPage(currentPage + 1);
-    } else {
-      onComplete();
-    }
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      if (currentPage < story.pages.length - 1) {
+        setCurrentPage(currentPage + 1);
+      } else {
+        onComplete();
+      }
+      setIsTransitioning(false);
+    }, 300);
   };
 
   const goToPrevPage = () => {
-    if (currentPage > 0) {
+    if (isTransitioning || currentPage === 0) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
       setCurrentPage(currentPage - 1);
-    }
+      setIsTransitioning(false);
+    }, 300);
   };
 
-  // Render word with magic effects
+  // Render word
   const renderWord = (ws: WordState, index: number) => {
     const isActive = ws.isActive;
 
@@ -192,54 +192,29 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
         key={index}
         ref={(el) => { wordRefs.current[index] = el; }}
         onClick={() => handleWordTap(index)}
-        className="relative inline-block mx-2 my-4 cursor-pointer select-none"
+        className={`
+          relative inline-block px-3 py-2 mx-1 my-2 rounded-xl
+          cursor-pointer select-none
+          transition-all duration-200 ease-out
+          text-3xl md:text-4xl lg:text-5xl font-semibold
+          ${isActive
+            ? 'bg-white text-gray-800 shadow-xl scale-110 -translate-y-1'
+            : ws.isCompleted
+              ? 'bg-white/90 text-gray-700'
+              : 'bg-white/60 text-gray-500'}
+        `}
         style={{
-          transform: isActive ? 'scale(1.3) translateY(-8px)' : 'scale(1)',
-          transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          boxShadow: isActive
+            ? `0 8px 30px ${gradeInfo.color}50`
+            : undefined,
         }}
       >
-        {/* Glow effect */}
-        {isActive && (
-          <span
-            className="absolute inset-0 -m-4 rounded-full animate-pulse"
-            style={{
-              background: `radial-gradient(circle, ${gradeInfo.color}80 0%, transparent 70%)`,
-              filter: 'blur(15px)',
-            }}
-          />
+        {ws.cleanWord}{ws.punctuation}
+
+        {/* Struggling indicator */}
+        {ws.isStruggling && !isActive && (
+          <span className="absolute -top-2 -right-1 text-xl">💡</span>
         )}
-
-        {/* Word bubble */}
-        <span
-          className={`
-            relative z-10 px-4 py-2 rounded-2xl font-bold
-            text-4xl md:text-5xl lg:text-6xl
-            transition-all duration-200
-            ${isActive
-              ? 'bg-white text-gray-800 shadow-2xl'
-              : ws.isCompleted
-                ? 'bg-white/80 text-gray-700'
-                : 'bg-white/40 text-gray-600'}
-          `}
-          style={{
-            boxShadow: isActive
-              ? `0 10px 40px ${gradeInfo.color}60, 0 0 60px ${gradeInfo.color}40`
-              : 'none',
-          }}
-        >
-          {ws.cleanWord}
-          {ws.punctuation}
-
-          {/* Struggling sparkle */}
-          {ws.isStruggling && !isActive && (
-            <span className="absolute -top-4 -right-2 text-3xl animate-bounce">💡</span>
-          )}
-
-          {/* Active sparkles */}
-          {isActive && (
-            <span className="absolute -top-2 -right-2 text-2xl animate-spin-slow">✨</span>
-          )}
-        </span>
       </span>
     );
   };
@@ -248,259 +223,238 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
-      className={`min-h-screen bg-gradient-to-b ${theme.colors[0]} relative overflow-hidden`}
-      style={{ touchAction: 'none' }}
+      className="min-h-screen relative overflow-hidden"
+      style={{
+        touchAction: 'none',
+        background: `linear-gradient(180deg, ${gradeInfo.color}30 0%, ${gradeInfo.color}10 50%, white 100%)`,
+      }}
     >
-      {/* Animated sky/background layer */}
-      <div className="absolute inset-0">
-        <div className={`absolute inset-0 bg-gradient-to-t ${theme.colors[1]} opacity-50`} />
-
-        {/* Moving clouds/shapes */}
-        {[...Array(5)].map((_, i) => (
-          <div
-            key={`cloud-${i}`}
-            className="absolute rounded-full bg-white/30 animate-float-slow"
-            style={{
-              width: 100 + i * 50 + 'px',
-              height: 40 + i * 20 + 'px',
-              left: (i * 25) + '%',
-              top: 10 + (i % 3) * 15 + '%',
-              animationDelay: i * 2 + 's',
-              animationDuration: 15 + i * 3 + 's',
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Floating animated elements */}
+      {/* Subtle background decorations - slow, gentle movement */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {floatingElements.map((el) => (
-          <div
-            key={el.id}
-            className="absolute text-5xl md:text-6xl animate-float-random"
-            style={{
-              left: el.x + '%',
-              top: Math.random() * 60 + 20 + '%',
-              animationDelay: el.delay + 's',
-            }}
-          >
-            {el.emoji}
-          </div>
-        ))}
-      </div>
-
-      {/* Magic trail */}
-      {magicTrail.map((point, i) => (
+        {/* Top left decoration */}
         <div
-          key={point.id}
-          className="fixed pointer-events-none z-40"
+          className="absolute text-6xl md:text-8xl opacity-20"
           style={{
-            left: point.x - 10,
-            top: point.y - 10,
-            opacity: (i / magicTrail.length) * 0.8,
+            top: '10%',
+            left: '5%',
+            animation: 'gentle-float 20s ease-in-out infinite',
           }}
         >
-          <div
-            className="w-5 h-5 rounded-full animate-ping"
-            style={{
-              background: `radial-gradient(circle, ${gradeInfo.color} 0%, transparent 70%)`,
-            }}
-          />
+          {decorations[0]}
         </div>
-      ))}
 
-      {/* Story emoji floating in background */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[12rem] md:text-[16rem] opacity-20 animate-float-slow pointer-events-none">
-        {story.coverEmoji}
-      </div>
-
-      {/* Header */}
-      <div className="relative z-20 flex items-center justify-between p-4 md:p-6">
-        <button
-          onClick={onBack}
-          className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:scale-110 transition-transform"
+        {/* Top right decoration */}
+        <div
+          className="absolute text-5xl md:text-7xl opacity-15"
+          style={{
+            top: '15%',
+            right: '8%',
+            animation: 'gentle-float 25s ease-in-out infinite',
+            animationDelay: '-5s',
+          }}
         >
-          <svg className="w-7 h-7 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <div className="bg-white/90 rounded-full px-6 py-3 shadow-lg">
-          <span className="text-xl md:text-2xl font-bold text-gray-700">
-            {currentPage + 1} ✨ {totalPages}
-          </span>
+          {decorations[1]}
         </div>
 
-        <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-3xl">
+        {/* Bottom left decoration */}
+        <div
+          className="absolute text-5xl md:text-6xl opacity-15"
+          style={{
+            bottom: '20%',
+            left: '10%',
+            animation: 'gentle-float 22s ease-in-out infinite',
+            animationDelay: '-10s',
+          }}
+        >
+          {decorations[2]}
+        </div>
+
+        {/* Bottom right decoration */}
+        <div
+          className="absolute text-4xl md:text-5xl opacity-10"
+          style={{
+            bottom: '25%',
+            right: '12%',
+            animation: 'gentle-float 28s ease-in-out infinite',
+            animationDelay: '-15s',
+          }}
+        >
+          {decorations[0]}
+        </div>
+
+        {/* Center background - story emoji */}
+        <div
+          className="absolute text-[10rem] md:text-[14rem] opacity-[0.08]"
+          style={{
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
           {story.coverEmoji}
         </div>
       </div>
 
-      {/* Main story content */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-[60vh] px-6 md:px-12">
-        {/* Story text */}
-        <div className="text-center max-w-5xl">
-          <p className="leading-loose">
-            {wordStates.map((ws, index) => renderWord(ws, index))}
-          </p>
-        </div>
-      </div>
+      {/* Header */}
+      <header className="relative z-20 flex items-center justify-between p-4 md:p-6">
+        <button
+          onClick={onBack}
+          className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow"
+        >
+          <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
 
-      {/* Navigation arrows */}
-      <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-between px-6 md:px-12">
+        <div className="bg-white rounded-full px-5 py-2 shadow-md">
+          <span className="text-lg md:text-xl font-semibold text-gray-700">
+            Page {currentPage + 1} of {totalPages}
+          </span>
+        </div>
+
+        <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white shadow-md flex items-center justify-center text-2xl md:text-3xl">
+          {story.coverEmoji}
+        </div>
+      </header>
+
+      {/* Main content area */}
+      <main
+        className={`
+          relative z-10 flex flex-col items-center justify-center
+          min-h-[65vh] px-6 md:px-12 lg:px-20
+          transition-opacity duration-300
+          ${isTransitioning ? 'opacity-0' : 'opacity-100'}
+        `}
+      >
+        {/* Story text card */}
+        <div className="w-full max-w-4xl">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 md:p-12 shadow-lg">
+            <p className="text-center leading-relaxed">
+              {wordStates.map((ws, index) => renderWord(ws, index))}
+            </p>
+          </div>
+        </div>
+
+        {/* Reading hint */}
+        <p className="mt-6 text-gray-500 text-center">
+          <span className="text-xl mr-2">👆</span>
+          Slide your finger under each word as you read
+        </p>
+      </main>
+
+      {/* Navigation */}
+      <nav className="absolute bottom-6 left-0 right-0 z-20 flex items-center justify-between px-6 md:px-12">
         <button
           onClick={goToPrevPage}
           disabled={currentPage === 0}
           className={`
-            w-20 h-20 md:w-24 md:h-24 rounded-full
-            flex items-center justify-center
-            transition-all duration-300
+            w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center
+            transition-all duration-200
             ${currentPage === 0
-              ? 'bg-white/30 text-gray-400'
-              : 'bg-white shadow-2xl text-gray-700 hover:scale-110 active:scale-95'}
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              : 'bg-white shadow-lg text-gray-700 hover:shadow-xl active:scale-95'}
           `}
         >
-          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
+
+        {/* Progress indicator */}
+        <div className="flex gap-2">
+          {story.pages.map((_, i) => (
+            <div
+              key={i}
+              className={`
+                h-2 rounded-full transition-all duration-300
+                ${i === currentPage
+                  ? 'w-8 bg-gray-700'
+                  : i < currentPage
+                    ? 'w-2 bg-gray-400'
+                    : 'w-2 bg-gray-300'}
+              `}
+            />
+          ))}
+        </div>
 
         <button
           onClick={goToNextPage}
-          className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white shadow-2xl flex items-center justify-center text-gray-700 hover:scale-110 active:scale-95 transition-all duration-300"
+          className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white shadow-lg flex items-center justify-center text-gray-700 hover:shadow-xl active:scale-95 transition-all duration-200"
         >
-          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-      </div>
-
-      {/* Reading hint */}
-      <div className="absolute bottom-32 left-0 right-0 text-center z-10">
-        <div className="inline-block bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg">
-          <span className="text-lg md:text-xl text-gray-600">
-            👆 Slide your finger under the words!
-          </span>
-        </div>
-      </div>
-
-      {/* Progress dots */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
-        {story.pages.map((_, i) => (
-          <div
-            key={i}
-            className={`
-              h-3 rounded-full transition-all duration-300
-              ${i === currentPage
-                ? 'w-10 bg-white shadow-lg'
-                : i < currentPage
-                  ? 'w-3 bg-white/80'
-                  : 'w-3 bg-white/40'}
-            `}
-          />
-        ))}
-      </div>
+      </nav>
 
       {/* Help popup */}
       {helpWord && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30"
           onClick={() => setHelpWord(null)}
         >
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div
-            className="relative bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl animate-bounce-in"
+            className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            {/* Word display */}
             <div className="text-center mb-6">
-              <div className="text-6xl font-bold text-gray-800 mb-4">
+              <div className="text-5xl font-bold text-gray-800 mb-4">
                 {getSyllables(helpWord.word).map((syl, i) => (
                   <span key={i}>
-                    <span
-                      className="inline-block animate-bounce-slow"
-                      style={{
-                        animationDelay: `${i * 0.15}s`,
-                        color: gradeInfo.color,
-                      }}
-                    >
-                      {syl}
-                    </span>
+                    <span style={{ color: gradeInfo.color }}>{syl}</span>
                     {i < getSyllables(helpWord.word).length - 1 && (
-                      <span className="text-gray-300 mx-2">·</span>
+                      <span className="text-gray-300 mx-1">·</span>
                     )}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* Pronunciation */}
             <div
-              className="rounded-2xl p-5 mb-6 text-center"
-              style={{ backgroundColor: `${gradeInfo.color}20` }}
+              className="rounded-2xl p-4 mb-6 text-center"
+              style={{ backgroundColor: `${gradeInfo.color}15` }}
             >
-              <div className="text-lg text-gray-600 mb-1">Say it like:</div>
-              <div className="text-3xl font-bold" style={{ color: gradeInfo.color }}>
+              <div className="text-sm text-gray-500 mb-1">Say it like:</div>
+              <div className="text-2xl font-bold" style={{ color: gradeInfo.color }}>
                 {getAgeAppropriateHint(helpWord.word, gradeLevel)}
               </div>
             </div>
 
-            {/* Tip */}
             {getPhoneticHelp(helpWord.word) && (
-              <div className="text-center text-gray-500 mb-6">
+              <p className="text-center text-gray-500 text-sm mb-6">
                 💡 {getPhoneticHelp(helpWord.word)?.hint}
-              </div>
+              </p>
             )}
 
-            {/* Close button */}
             <button
               onClick={() => setHelpWord(null)}
-              className="w-full py-4 rounded-full font-bold text-xl text-white transition-transform hover:scale-105 active:scale-95"
+              className="w-full py-3 rounded-full font-semibold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
               style={{ backgroundColor: gradeInfo.color }}
             >
-              Got it! 👍
+              Got it!
             </button>
           </div>
         </div>
       )}
 
-      {/* Page complete celebration */}
+      {/* Page complete */}
       {showPageComplete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-3xl p-8 text-center max-w-sm mx-4 shadow-2xl">
+            <div className="text-6xl mb-4">🌟</div>
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">Great job!</h2>
+            <p className="text-gray-600 mb-6">You finished this page!</p>
 
-          {/* Confetti */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {[...Array(30)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute w-4 h-4 animate-confetti"
-                style={{
-                  left: Math.random() * 100 + '%',
-                  top: '-20px',
-                  backgroundColor: ['#FF6B9D', '#FFD93D', '#6BCB77', '#4D96FF', '#FF6B6B'][i % 5],
-                  borderRadius: Math.random() > 0.5 ? '50%' : '0',
-                  animationDelay: Math.random() * 2 + 's',
-                }}
-              />
-            ))}
-          </div>
-
-          <div className="relative bg-white rounded-[2rem] p-10 text-center max-w-md mx-4 shadow-2xl animate-bounce-in">
-            <div className="text-8xl mb-4 animate-wiggle">🎉</div>
-            <h2 className="text-4xl font-bold text-gray-800 mb-2">Amazing!</h2>
-            <p className="text-xl text-gray-600 mb-8">You read the whole page!</p>
-
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               {currentPage > 0 && (
                 <button
                   onClick={() => {
                     setShowPageComplete(false);
                     goToPrevPage();
                   }}
-                  className="flex-1 py-5 rounded-full bg-gray-200 text-gray-700 font-bold text-xl hover:bg-gray-300 transition-colors"
+                  className="flex-1 py-3 rounded-full bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 transition-colors"
                 >
-                  ← Back
+                  Back
                 </button>
               )}
               <button
@@ -508,15 +462,27 @@ export default function StoryWorld({ story, gradeLevel, onBack, onComplete }: St
                   setShowPageComplete(false);
                   goToNextPage();
                 }}
-                className="flex-1 py-5 rounded-full text-white font-bold text-xl shadow-lg hover:opacity-90 transition-opacity"
+                className="flex-1 py-3 rounded-full text-white font-semibold transition-transform hover:scale-[1.02]"
                 style={{ backgroundColor: gradeInfo.color }}
               >
-                {currentPage < story.pages.length - 1 ? 'Next! →' : 'Finish! 🏆'}
+                {currentPage < story.pages.length - 1 ? 'Next Page' : 'Finish!'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* CSS for gentle floating animation */}
+      <style jsx>{`
+        @keyframes gentle-float {
+          0%, 100% {
+            transform: translateY(0) translateX(0);
+          }
+          50% {
+            transform: translateY(-15px) translateX(5px);
+          }
+        }
+      `}</style>
     </div>
   );
 }
