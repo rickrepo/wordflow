@@ -72,23 +72,23 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden pointer-events-none">
-      {/* Page being "destroyed" effect */}
-      <div className="absolute inset-0 bg-white animate-page-shake" />
+      {/* Semi-transparent overlay that dims the scene slightly during transition */}
+      <div className="absolute inset-0 bg-black/10 animate-flash-dim" />
 
-      {/* DINOSAUR BITE - A T-Rex head comes in and takes a bite out of the screen */}
+      {/* DINOSAUR BITE - A T-Rex head comes in and chomps at the text area */}
       {transition === 'dinosaur-bite' && (
         <>
-          {/* Bite mark left behind */}
+          {/* Bite mark overlay - semi-transparent to show scene through */}
           <div className="absolute top-0 right-0 w-1/2 h-1/2 animate-bite-reveal">
             <svg viewBox="0 0 200 200" className="w-full h-full">
               <path
                 d="M200,0 L200,200 L0,200 L0,150 Q30,140 40,120 Q50,100 40,80 Q30,60 50,40 Q70,20 60,0 Z"
-                fill="#1a1a1a"
+                fill="rgba(0,0,0,0.3)"
               />
             </svg>
           </div>
           {/* T-Rex head */}
-          <div className="absolute -right-40 top-1/4 animate-dino-chomp">
+          <div className="absolute -right-40 top-1/4 animate-dino-chomp drop-shadow-2xl">
             <svg width="400" height="300" viewBox="0 0 400 300">
               {/* Head */}
               <ellipse cx="250" cy="150" rx="150" ry="100" fill="#2D5A27" />
@@ -116,7 +116,7 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
               <circle cx="370" cy="150" r="10" fill="#2D5A27" />
             </svg>
           </div>
-          {/* Crumbs flying */}
+          {/* Paper/text crumbs flying from the "bite" */}
           {confetti.slice(0, 15).map((c) => (
             <div
               key={c.id}
@@ -130,7 +130,7 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
               } as React.CSSProperties}
             >
               <div
-                className="rounded-sm bg-gray-200"
+                className="rounded-sm bg-white/80 shadow-md"
                 style={{ width: c.size, height: c.size }}
               />
             </div>
@@ -138,11 +138,18 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
         </>
       )}
 
-      {/* MONSTER GRAB - Giant furry hand grabs the page */}
+      {/* MONSTER GRAB - Giant furry hand reaches in and grabs */}
       {transition === 'monster-grab' && (
         <>
-          <div className="absolute inset-0 animate-page-crumple" />
-          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 animate-monster-grab">
+          {/* Claw scratch marks on screen */}
+          <div className="absolute inset-0 animate-scratch-marks pointer-events-none">
+            <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
+              <path d="M20,10 Q25,50 30,90" stroke="rgba(0,0,0,0.2)" strokeWidth="3" fill="none" className="animate-scratch-line" />
+              <path d="M40,5 Q45,50 50,95" stroke="rgba(0,0,0,0.25)" strokeWidth="4" fill="none" className="animate-scratch-line" style={{ animationDelay: '0.1s' }} />
+              <path d="M60,8 Q65,50 70,92" stroke="rgba(0,0,0,0.2)" strokeWidth="3" fill="none" className="animate-scratch-line" style={{ animationDelay: '0.2s' }} />
+            </svg>
+          </div>
+          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 animate-monster-grab drop-shadow-2xl">
             <svg width="400" height="300" viewBox="0 0 400 300">
               {/* Furry arm */}
               <ellipse cx="200" cy="280" rx="100" ry="60" fill="#8B4513" />
@@ -175,11 +182,10 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
         </>
       )}
 
-      {/* CAT SWIPE - Cat paw swipes across and knocks everything off */}
+      {/* CAT SWIPE - Cat paw swipes across and bats at the text */}
       {transition === 'cat-swipe' && (
         <>
-          <div className="absolute inset-0 animate-slide-off-right" />
-          <div className="absolute -left-40 top-1/3 animate-cat-swipe">
+          <div className="absolute -left-40 top-1/3 animate-cat-swipe drop-shadow-2xl">
             <svg width="300" height="200" viewBox="0 0 300 200">
               {/* Arm */}
               <ellipse cx="50" cy="100" rx="80" ry="50" fill="#FF9F43" />
@@ -199,8 +205,8 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
               <path d="M60,90 Q80,100 60,120" stroke="#E67E22" strokeWidth="8" fill="none" />
             </svg>
           </div>
-          {/* Items flying off */}
-          {confetti.map((c) => (
+          {/* Items being batted around */}
+          {confetti.slice(0, 8).map((c) => (
             <div
               key={c.id}
               className="absolute animate-fly-off-screen"
@@ -210,17 +216,16 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
                 animationDelay: `${0.2 + c.delay}s`,
               }}
             >
-              <span className="text-2xl">{['📚', '✏️', '📖', '🎨', '⭐'][c.id % 5]}</span>
+              <span className="text-3xl drop-shadow-lg">{['📚', '✏️', '📖', '🎨', '⭐', '✨', '💫', '🌟'][c.id % 8]}</span>
             </div>
           ))}
         </>
       )}
 
-      {/* DOG SHAKE - Dog grabs and shakes the page like a toy */}
+      {/* DOG SHAKE - Dog head appears shaking with excitement */}
       {transition === 'dog-shake' && (
         <>
-          <div className="absolute inset-0 animate-violent-shake" />
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 animate-dog-head-shake">
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 animate-dog-head-shake drop-shadow-2xl">
             <svg width="250" height="200" viewBox="0 0 250 200">
               {/* Head */}
               <ellipse cx="125" cy="100" rx="100" ry="80" fill="#D2691E" />
@@ -228,76 +233,73 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
               <ellipse cx="125" cy="140" rx="50" ry="40" fill="#DEB887" />
               {/* Nose */}
               <ellipse cx="125" cy="120" rx="20" ry="15" fill="#2a2a2a" />
-              {/* Eyes */}
+              {/* Tongue hanging out in excitement */}
+              <ellipse cx="125" cy="175" rx="20" ry="30" fill="#FF69B4" className="animate-tongue-wag" />
+              {/* Eyes - excited! */}
               <circle cx="80" cy="80" r="20" fill="white" />
               <circle cx="170" cy="80" r="20" fill="white" />
               <circle cx="85" cy="80" r="12" fill="#2a2a2a" />
               <circle cx="175" cy="80" r="12" fill="#2a2a2a" />
+              {/* Sparkle in eyes */}
+              <circle cx="88" cy="76" r="4" fill="white" />
+              <circle cx="178" cy="76" r="4" fill="white" />
               {/* Excited eyebrows */}
               <path d="M50,55 Q80,45 100,60" stroke="#8B4513" strokeWidth="6" fill="none" />
               <path d="M150,60 Q170,45 200,55" stroke="#8B4513" strokeWidth="6" fill="none" />
               {/* Ears flopping */}
               <ellipse cx="30" cy="60" rx="30" ry="50" fill="#A0522D" className="animate-ear-flop" />
               <ellipse cx="220" cy="60" rx="30" ry="50" fill="#A0522D" className="animate-ear-flop" style={{ animationDelay: '0.1s' }} />
-              {/* Tongue */}
-              <ellipse cx="125" cy="175" rx="20" ry="30" fill="#FF69B4" className="animate-tongue-wag" />
-              {/* Paper in mouth */}
-              <rect x="60" y="150" width="130" height="40" fill="white" stroke="#ddd" className="animate-paper-in-mouth" />
             </svg>
           </div>
-          {/* Paper pieces flying */}
-          {confetti.slice(0, 20).map((c) => (
+          {/* Drool/slobber drops */}
+          {confetti.slice(0, 6).map((c) => (
             <div
               key={c.id}
-              className="absolute animate-paper-fly"
+              className="absolute animate-drip-fall"
               style={{
-                left: '50%',
-                top: '40%',
-                '--end-x': `${(Math.random() - 0.5) * 400}px`,
-                '--end-y': `${(Math.random() - 0.5) * 300}px`,
-                '--rotation': `${Math.random() * 720}deg`,
+                left: `calc(50% + ${(c.id - 3) * 15}px)`,
+                top: '55%',
                 animationDelay: `${0.5 + c.delay}s`,
-              } as React.CSSProperties}
+              }}
             >
-              <div
-                className="bg-white border border-gray-200"
-                style={{ width: c.size, height: c.size * 1.4 }}
-              />
+              <div className="w-3 h-4 bg-blue-200/70 rounded-full" />
             </div>
           ))}
         </>
       )}
 
-      {/* TORNADO SPIN - Everything gets sucked into a tornado */}
+      {/* TORNADO SPIN - Small tornado that spins through */}
       {transition === 'tornado-spin' && (
         <>
-          <div className="absolute inset-0 animate-spiral-away" />
-          <div className="absolute left-1/2 bottom-0 -translate-x-1/2 animate-tornado-grow">
-            <svg width="300" height="500" viewBox="0 0 300 500">
-              {/* Tornado funnel */}
-              <path d="M150,0 Q50,100 80,200 Q30,300 100,400 Q60,450 150,500 Q240,450 200,400 Q270,300 220,200 Q250,100 150,0"
-                    fill="url(#tornadoGradient)" className="animate-tornado-spin" />
+          <div className="absolute animate-tornado-sweep drop-shadow-xl">
+            <svg width="200" height="350" viewBox="0 0 200 350">
+              {/* Tornado funnel - semi transparent */}
               <defs>
                 <linearGradient id="tornadoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#4a5568" />
-                  <stop offset="50%" stopColor="#718096" />
-                  <stop offset="100%" stopColor="#4a5568" />
+                  <stop offset="0%" stopColor="rgba(74, 85, 104, 0.5)" />
+                  <stop offset="50%" stopColor="rgba(113, 128, 150, 0.6)" />
+                  <stop offset="100%" stopColor="rgba(74, 85, 104, 0.5)" />
                 </linearGradient>
               </defs>
-              {/* Debris in tornado */}
-              <text x="100" y="150" className="animate-debris-spin text-xl">📚</text>
-              <text x="180" y="250" className="animate-debris-spin text-xl" style={{ animationDelay: '0.2s' }}>✏️</text>
-              <text x="120" y="350" className="animate-debris-spin text-xl" style={{ animationDelay: '0.4s' }}>📖</text>
+              <path d="M100,0 Q30,70 50,140 Q10,210 60,280 Q30,320 100,350 Q170,320 140,280 Q190,210 150,140 Q170,70 100,0"
+                    fill="url(#tornadoGradient)" className="animate-tornado-spin" />
+              {/* Debris swirling */}
+              <text x="60" y="100" className="animate-debris-spin text-2xl">📚</text>
+              <text x="120" y="180" className="animate-debris-spin text-xl" style={{ animationDelay: '0.2s' }}>✏️</text>
+              <text x="80" y="260" className="animate-debris-spin text-2xl" style={{ animationDelay: '0.4s' }}>📖</text>
             </svg>
           </div>
         </>
       )}
 
-      {/* ROCKET CRASH - Rocket crashes through the page */}
+      {/* ROCKET CRASH - Rocket zooms through the scene */}
       {transition === 'rocket-crash' && (
         <>
-          <div className="absolute inset-0 animate-explosion-crack" />
-          <div className="absolute -top-40 left-1/2 -translate-x-1/2 animate-rocket-crash-in">
+          {/* Smoke trail */}
+          <div className="absolute top-0 left-1/2 w-20 h-full animate-smoke-trail">
+            <div className="w-full h-full bg-gradient-to-b from-gray-300/50 via-gray-200/30 to-transparent blur-md" />
+          </div>
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 animate-rocket-crash-in drop-shadow-2xl">
             <svg width="120" height="200" viewBox="0 0 120 200">
               {/* Rocket body */}
               <ellipse cx="60" cy="100" rx="30" ry="70" fill="#E74C3C" />
@@ -306,6 +308,7 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
               <polygon points="60,20 40,70 80,70" fill="#3498DB" />
               {/* Window */}
               <circle cx="60" cy="85" r="15" fill="#85C1E9" />
+              <circle cx="55" cy="80" r="5" fill="white" opacity="0.5" />
               {/* Fins */}
               <polygon points="30,140 10,180 40,160" fill="#2ECC71" />
               <polygon points="90,140 110,180 80,160" fill="#2ECC71" />
@@ -317,122 +320,98 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
               </g>
             </svg>
           </div>
-          {/* Impact cracks */}
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 animate-crack-spread">
-            {[...Array(8)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute bg-black origin-center"
-                style={{
-                  width: '4px',
-                  height: '150px',
-                  transform: `rotate(${i * 45}deg)`,
-                }}
-              />
-            ))}
-          </div>
-          {/* Explosion particles */}
-          {confetti.map((c) => (
+          {/* Sparkle trail */}
+          {confetti.slice(0, 10).map((c) => (
             <div
               key={c.id}
-              className="absolute animate-explosion-particle"
+              className="absolute animate-sparkle-trail"
               style={{
-                left: '50%',
-                top: '35%',
-                '--end-x': `${(Math.random() - 0.5) * 500}px`,
-                '--end-y': `${(Math.random() - 0.5) * 400}px`,
-                animationDelay: `${0.4 + c.delay * 0.5}s`,
-              } as React.CSSProperties}
+                left: `calc(50% + ${(Math.random() - 0.5) * 60}px)`,
+                top: `${30 + c.id * 5}%`,
+                animationDelay: `${0.3 + c.delay}s`,
+              }}
             >
-              <div
-                className="rounded-full"
-                style={{
-                  width: c.size,
-                  height: c.size,
-                  backgroundColor: c.color,
-                }}
-              />
+              <span className="text-xl">✨</span>
             </div>
           ))}
         </>
       )}
 
-      {/* GIANT TONGUE - Frog tongue grabs and pulls page away */}
+      {/* GIANT TONGUE - Frog peeks up and tongue zaps out */}
       {transition === 'giant-tongue' && (
         <>
-          <div className="absolute inset-0 animate-pull-down" />
-          <div className="absolute -bottom-60 left-1/2 -translate-x-1/2 animate-frog-appear">
-            <svg width="300" height="200" viewBox="0 0 300 200">
-              {/* Body */}
-              <ellipse cx="150" cy="150" rx="130" ry="80" fill="#27AE60" />
-              {/* Head */}
-              <ellipse cx="150" cy="80" rx="100" ry="70" fill="#2ECC71" />
-              {/* Eyes */}
-              <circle cx="90" cy="30" r="35" fill="#2ECC71" />
-              <circle cx="210" cy="30" r="35" fill="#2ECC71" />
-              <circle cx="90" cy="30" r="25" fill="white" />
-              <circle cx="210" cy="30" r="25" fill="white" />
-              <circle cx="95" cy="30" r="15" fill="#2a2a2a" />
-              <circle cx="215" cy="30" r="15" fill="#2a2a2a" />
-              {/* Mouth open */}
-              <ellipse cx="150" cy="110" rx="60" ry="30" fill="#C0392B" />
-            </svg>
-          </div>
-          {/* Tongue */}
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-12 animate-tongue-extend origin-bottom">
-            <div className="w-full bg-pink-400 rounded-full" style={{ height: '60vh' }}>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-8 bg-pink-400 rounded-full" />
+          {/* Tongue zapping across screen */}
+          <div className="absolute bottom-32 left-1/2 -translate-x-1/2 w-8 animate-tongue-extend origin-bottom">
+            <div className="w-full bg-pink-400 rounded-t-full" style={{ height: '50vh' }}>
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-6 bg-pink-400 rounded-full" />
             </div>
+          </div>
+          {/* Frog peeking from bottom */}
+          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 animate-frog-appear drop-shadow-2xl">
+            <svg width="250" height="150" viewBox="0 0 250 150">
+              {/* Head */}
+              <ellipse cx="125" cy="100" rx="100" ry="60" fill="#2ECC71" />
+              {/* Eyes - big and bulging */}
+              <circle cx="70" cy="30" r="40" fill="#2ECC71" />
+              <circle cx="180" cy="30" r="40" fill="#2ECC71" />
+              <circle cx="70" cy="30" r="30" fill="white" />
+              <circle cx="180" cy="30" r="30" fill="white" />
+              <circle cx="75" cy="30" r="18" fill="#2a2a2a" />
+              <circle cx="185" cy="30" r="18" fill="#2a2a2a" />
+              <circle cx="80" cy="25" r="6" fill="white" />
+              <circle cx="190" cy="25" r="6" fill="white" />
+              {/* Mouth open */}
+              <ellipse cx="125" cy="110" rx="50" ry="25" fill="#C0392B" />
+            </svg>
           </div>
         </>
       )}
 
-      {/* NINJA SLICE - Ninja sword slices through */}
+      {/* NINJA SLICE - Katana slices through quickly */}
       {transition === 'ninja-slice' && (
         <>
-          <div className="absolute inset-0">
-            <div className="absolute top-0 left-0 w-full h-1/2 bg-white animate-slice-fall-top origin-bottom" />
-            <div className="absolute bottom-0 left-0 w-full h-1/2 bg-white animate-slice-fall-bottom origin-top" />
+          {/* Slash effect lines */}
+          <div className="absolute inset-0 animate-slash-lines pointer-events-none">
+            <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
+              <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.9)" strokeWidth="0.5" className="animate-slash-glow" />
+            </svg>
           </div>
-          <div className="absolute -left-40 top-1/2 -translate-y-1/2 animate-ninja-slice">
+          <div className="absolute -left-40 top-1/2 -translate-y-1/2 animate-ninja-slice drop-shadow-2xl">
             <svg width="400" height="60" viewBox="0 0 400 60">
-              {/* Blade */}
-              <polygon points="0,30 350,25 380,30 350,35" fill="linear-gradient(#e0e0e0, #ffffff, #e0e0e0)" />
-              <polygon points="0,30 350,25 380,30 350,35" fill="#C0C0C0" />
-              <line x1="0" y1="30" x2="350" y2="30" stroke="white" strokeWidth="2" />
+              {/* Blade with gleam */}
+              <polygon points="0,30 350,25 380,30 350,35" fill="#D0D0D0" />
+              <line x1="0" y1="30" x2="350" y2="30" stroke="white" strokeWidth="3" opacity="0.8" />
+              <line x1="50" y1="28" x2="200" y2="28" stroke="white" strokeWidth="1" opacity="0.5" />
               {/* Handle */}
               <rect x="380" y="20" width="60" height="20" fill="#2a2a2a" rx="3" />
               <rect x="390" y="22" width="5" height="16" fill="#FFD700" />
               <rect x="400" y="22" width="5" height="16" fill="#FFD700" />
+              {/* Motion blur effect */}
+              <rect x="0" y="28" width="350" height="4" fill="rgba(255,255,255,0.3)" className="animate-blade-blur" />
             </svg>
           </div>
-          {/* Slash effect */}
-          <div className="absolute inset-0 animate-slash-flash bg-white" />
-          {/* Paper pieces */}
-          {confetti.map((c) => (
+          {/* Slash sparks */}
+          {confetti.slice(0, 12).map((c) => (
             <div
               key={c.id}
-              className="absolute animate-slice-piece"
+              className="absolute animate-spark-fly"
               style={{
-                left: `${c.x}%`,
+                left: `${10 + c.id * 7}%`,
                 top: '50%',
-                '--end-y': `${c.id % 2 === 0 ? -200 : 200}px`,
-                '--rotation': `${(Math.random() - 0.5) * 90}deg`,
-                animationDelay: `${0.3 + c.delay * 0.3}s`,
+                '--end-x': `${(Math.random() - 0.5) * 100}px`,
+                '--end-y': `${(Math.random() - 0.5) * 150}px`,
+                animationDelay: `${0.15 + c.delay * 0.3}s`,
               } as React.CSSProperties}
             >
-              <div
-                className="bg-white border-t border-gray-300"
-                style={{ width: c.size * 2, height: c.size * 3 }}
-              />
+              <div className="w-2 h-2 bg-yellow-300 rounded-full shadow-lg shadow-yellow-400" />
             </div>
           ))}
         </>
       )}
 
-      {/* Sound effect text */}
+      {/* Sound effect text - always visible but with text shadow for readability */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-sound-effect">
-        <p className="text-7xl font-black text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)] comic-text">
+        <p className="text-7xl font-black comic-text">
           {encouragement}
         </p>
       </div>
@@ -440,20 +419,23 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
       <style jsx>{`
         .comic-text {
           font-family: 'Comic Sans MS', cursive;
-          -webkit-text-stroke: 3px #333;
+          color: white;
+          text-shadow:
+            -3px -3px 0 #333,
+            3px -3px 0 #333,
+            -3px 3px 0 #333,
+            3px 3px 0 #333,
+            0 0 20px rgba(0,0,0,0.5);
         }
 
-        @keyframes page-shake {
-          0%, 100% { transform: translateX(0); }
-          10% { transform: translateX(-20px) rotate(-1deg); }
-          20% { transform: translateX(20px) rotate(1deg); }
-          30% { transform: translateX(-15px) rotate(-0.5deg); }
-          40% { transform: translateX(15px) rotate(0.5deg); }
-          50% { transform: translateX(-10px); }
-          60% { transform: translateX(10px); }
+        @keyframes flash-dim {
+          0% { opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { opacity: 0; }
         }
-        .animate-page-shake {
-          animation: page-shake 0.5s ease-in-out;
+        .animate-flash-dim {
+          animation: flash-dim 2.2s ease-out forwards;
         }
 
         @keyframes dino-chomp {
@@ -496,8 +478,8 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
 
         @keyframes monster-grab {
           0% { transform: translateX(-50%) translateY(100%); }
-          30% { transform: translateX(-50%) translateY(0); }
-          50% { transform: translateX(-50%) translateY(-50px); }
+          30% { transform: translateX(-50%) translateY(20%); }
+          50% { transform: translateX(-50%) translateY(0); }
           100% { transform: translateX(-50%) translateY(150%); }
         }
         .animate-monster-grab {
@@ -513,13 +495,23 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
           animation: finger-curl 1.5s ease-in-out forwards;
         }
 
-        @keyframes page-crumple {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(0.8) rotate(5deg); opacity: 0.8; }
-          100% { transform: scale(0.3) translateY(100%); opacity: 0; }
+        @keyframes scratch-line {
+          0% { stroke-dashoffset: 200; opacity: 0; }
+          30% { opacity: 1; }
+          100% { stroke-dashoffset: 0; opacity: 0.3; }
         }
-        .animate-page-crumple {
-          animation: page-crumple 2s ease-in forwards;
+        .animate-scratch-line {
+          stroke-dasharray: 200;
+          animation: scratch-line 0.8s ease-out forwards;
+        }
+
+        @keyframes scratch-marks {
+          0% { opacity: 0; }
+          30% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        .animate-scratch-marks {
+          animation: scratch-marks 2s ease-out forwards;
         }
 
         @keyframes cat-swipe {
@@ -531,21 +523,12 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
           animation: cat-swipe 1s ease-out forwards;
         }
 
-        @keyframes slide-off-right {
-          0% { transform: translateX(0); opacity: 1; }
-          100% { transform: translateX(100%) rotate(15deg); opacity: 0; }
-        }
-        .animate-slide-off-right {
-          animation: slide-off-right 0.8s ease-in forwards;
-          animation-delay: 0.2s;
-        }
-
         @keyframes fly-off-screen {
           0% { transform: translateX(0) rotate(0); opacity: 1; }
-          100% { transform: translateX(200px) translateY(-100px) rotate(360deg); opacity: 0; }
+          100% { transform: translateX(300px) translateY(-150px) rotate(540deg); opacity: 0; }
         }
         .animate-fly-off-screen {
-          animation: fly-off-screen 0.8s ease-out forwards;
+          animation: fly-off-screen 1s ease-out forwards;
         }
 
         @keyframes dog-head-shake {
@@ -561,19 +544,6 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
         }
         .animate-dog-head-shake {
           animation: dog-head-shake 1.5s ease-in-out forwards;
-        }
-
-        @keyframes violent-shake {
-          0%, 100% { transform: translate(0, 0) rotate(0); }
-          10% { transform: translate(-30px, 10px) rotate(-5deg); }
-          20% { transform: translate(30px, -10px) rotate(5deg); }
-          30% { transform: translate(-25px, 15px) rotate(-3deg); }
-          40% { transform: translate(25px, -15px) rotate(3deg); }
-          50% { transform: translate(-20px, 10px) rotate(-2deg); }
-          60% { transform: translate(20px, -10px) rotate(2deg); }
-        }
-        .animate-violent-shake {
-          animation: violent-shake 1s ease-in-out;
         }
 
         @keyframes ear-flop {
@@ -593,92 +563,67 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
           animation: tongue-wag 0.1s ease-in-out infinite;
         }
 
-        @keyframes paper-in-mouth {
-          0%, 100% { transform: rotate(0); }
-          50% { transform: rotate(5deg); }
+        @keyframes drip-fall {
+          0% { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(200px) scale(0.5); opacity: 0; }
         }
-        .animate-paper-in-mouth {
-          animation: paper-in-mouth 0.15s ease-in-out infinite;
-        }
-
-        @keyframes paper-fly {
-          0% { transform: translate(-50%, -50%) rotate(0) scale(1); opacity: 1; }
-          100% {
-            transform: translate(calc(-50% + var(--end-x)), calc(-50% + var(--end-y)))
-                       rotate(var(--rotation)) scale(0.5);
-            opacity: 0;
-          }
-        }
-        .animate-paper-fly {
-          animation: paper-fly 1s ease-out forwards;
+        .animate-drip-fall {
+          animation: drip-fall 1s ease-in forwards;
         }
 
-        @keyframes tornado-grow {
-          0% { transform: translateX(-50%) scaleY(0); opacity: 0; }
-          30% { transform: translateX(-50%) scaleY(1); opacity: 1; }
-          100% { transform: translateX(-50%) scaleY(1.2); opacity: 1; }
+        @keyframes tornado-sweep {
+          0% { left: -200px; top: 20%; }
+          50% { left: 50%; top: 50%; transform: translateX(-50%); }
+          100% { left: calc(100% + 200px); top: 30%; }
         }
-        .animate-tornado-grow {
-          animation: tornado-grow 1.5s ease-out forwards;
-          transform-origin: bottom center;
+        .animate-tornado-sweep {
+          animation: tornado-sweep 2s ease-in-out forwards;
         }
 
         @keyframes tornado-spin {
-          from { transform: rotate(0); }
-          to { transform: rotate(360deg); }
+          from { transform: rotate(0) scaleX(1); }
+          50% { transform: rotate(180deg) scaleX(0.9); }
+          to { transform: rotate(360deg) scaleX(1); }
         }
         .animate-tornado-spin {
-          animation: tornado-spin 0.5s linear infinite;
+          animation: tornado-spin 0.3s linear infinite;
           transform-origin: center center;
         }
 
-        @keyframes spiral-away {
-          0% { transform: scale(1) rotate(0); opacity: 1; }
-          100% { transform: scale(0) rotate(720deg); opacity: 0; }
-        }
-        .animate-spiral-away {
-          animation: spiral-away 1.5s ease-in forwards;
-          animation-delay: 0.3s;
-        }
-
         @keyframes debris-spin {
-          from { transform: rotate(0) translateX(30px); }
-          to { transform: rotate(360deg) translateX(30px); }
+          from { transform: rotate(0) translateX(20px); }
+          to { transform: rotate(360deg) translateX(20px); }
         }
         .animate-debris-spin {
-          animation: debris-spin 0.3s linear infinite;
-          transform-origin: -30px center;
+          animation: debris-spin 0.4s linear infinite;
+          transform-origin: -20px center;
         }
 
         @keyframes rocket-crash-in {
           0% { transform: translateX(-50%) translateY(0) rotate(180deg); }
-          40% { transform: translateX(-50%) translateY(calc(50vh + 100px)) rotate(180deg); }
-          45% { transform: translateX(-50%) translateY(calc(50vh + 80px)) rotate(175deg); }
-          100% { transform: translateX(-50%) translateY(calc(50vh + 80px)) rotate(175deg); }
+          60% { transform: translateX(-50%) translateY(calc(100vh + 100px)) rotate(180deg); }
+          100% { transform: translateX(-50%) translateY(calc(100vh + 200px)) rotate(180deg); }
         }
         .animate-rocket-crash-in {
-          animation: rocket-crash-in 1s ease-in forwards;
+          animation: rocket-crash-in 1.2s ease-in forwards;
         }
 
-        @keyframes explosion-crack {
-          0%, 40% { background: white; }
-          45% { background: #ff6b6b; }
-          50% { background: white; }
-          55% { background: #ff6b6b; }
-          60% { background: transparent; }
+        @keyframes smoke-trail {
+          0% { opacity: 0; transform: translateX(-50%) scaleY(0); }
+          20% { opacity: 0.5; transform: translateX(-50%) scaleY(1); }
+          100% { opacity: 0; transform: translateX(-50%) scaleY(1); }
         }
-        .animate-explosion-crack {
-          animation: explosion-crack 1s ease-out forwards;
+        .animate-smoke-trail {
+          animation: smoke-trail 1.5s ease-out forwards;
+          transform-origin: top center;
         }
 
-        @keyframes crack-spread {
-          0% { transform: translateX(-50%) scale(0); opacity: 0; }
-          40% { transform: translateX(-50%) scale(0); opacity: 0; }
-          50% { transform: translateX(-50%) scale(1); opacity: 1; }
-          100% { transform: translateX(-50%) scale(2); opacity: 0; }
+        @keyframes sparkle-trail {
+          0% { transform: scale(1); opacity: 1; }
+          100% { transform: scale(0); opacity: 0; }
         }
-        .animate-crack-spread {
-          animation: crack-spread 1.5s ease-out forwards;
+        .animate-sparkle-trail {
+          animation: sparkle-trail 0.8s ease-out forwards;
         }
 
         @keyframes flames-intense {
@@ -692,103 +637,88 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
           transform-origin: center top;
         }
 
-        @keyframes explosion-particle {
-          0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
-          100% {
-            transform: translate(calc(-50% + var(--end-x)), calc(-50% + var(--end-y))) scale(1);
-            opacity: 0;
-          }
-        }
-        .animate-explosion-particle {
-          animation: explosion-particle 0.8s ease-out forwards;
-        }
-
         @keyframes frog-appear {
           0% { transform: translateX(-50%) translateY(100%); }
-          40% { transform: translateX(-50%) translateY(0); }
-          100% { transform: translateX(-50%) translateY(0); }
+          30% { transform: translateX(-50%) translateY(0); }
+          80% { transform: translateX(-50%) translateY(0); }
+          100% { transform: translateX(-50%) translateY(100%); }
         }
         .animate-frog-appear {
-          animation: frog-appear 0.8s ease-out forwards;
+          animation: frog-appear 2s ease-out forwards;
         }
 
         @keyframes tongue-extend {
           0% { transform: scaleY(0); }
-          30% { transform: scaleY(1); }
+          20% { transform: scaleY(1); }
+          30% { transform: scaleY(1.1); }
+          40% { transform: scaleY(0.95); }
           60% { transform: scaleY(1); }
+          80% { transform: scaleY(1); }
           100% { transform: scaleY(0); }
         }
         .animate-tongue-extend {
           animation: tongue-extend 2s ease-in-out forwards;
         }
 
-        @keyframes pull-down {
-          0%, 30% { transform: translateY(0); opacity: 1; }
-          60% { transform: translateY(20px); opacity: 1; }
-          100% { transform: translateY(100vh); opacity: 0; }
-        }
-        .animate-pull-down {
-          animation: pull-down 2s ease-in forwards;
-        }
-
         @keyframes ninja-slice {
           0% { transform: translateY(-50%) translateX(0); }
-          30% { transform: translateY(-50%) translateX(calc(100vw + 200px)); }
+          25% { transform: translateY(-50%) translateX(calc(100vw + 200px)); }
           100% { transform: translateY(-50%) translateX(calc(100vw + 400px)); }
         }
         .animate-ninja-slice {
-          animation: ninja-slice 0.6s ease-out forwards;
+          animation: ninja-slice 0.5s ease-out forwards;
         }
 
-        @keyframes slice-fall-top {
-          0%, 30% { transform: rotate(0); }
-          100% { transform: rotate(-10deg) translateY(-50px); opacity: 0; }
+        @keyframes slash-glow {
+          0% { stroke-width: 0; opacity: 0; }
+          30% { stroke-width: 3; opacity: 1; }
+          100% { stroke-width: 0; opacity: 0; }
         }
-        .animate-slice-fall-top {
-          animation: slice-fall-top 1s ease-in forwards;
-          animation-delay: 0.3s;
-        }
-
-        @keyframes slice-fall-bottom {
-          0%, 30% { transform: rotate(0); }
-          100% { transform: rotate(10deg) translateY(50px); opacity: 0; }
-        }
-        .animate-slice-fall-bottom {
-          animation: slice-fall-bottom 1s ease-in forwards;
-          animation-delay: 0.3s;
+        .animate-slash-glow {
+          animation: slash-glow 0.6s ease-out forwards;
+          animation-delay: 0.2s;
         }
 
-        @keyframes slash-flash {
-          0%, 25% { opacity: 0; }
-          30% { opacity: 1; }
-          35% { opacity: 0; }
+        @keyframes slash-lines {
+          0% { opacity: 0; }
+          25% { opacity: 1; }
+          50% { opacity: 1; }
           100% { opacity: 0; }
         }
-        .animate-slash-flash {
-          animation: slash-flash 0.6s ease-out forwards;
+        .animate-slash-lines {
+          animation: slash-lines 0.8s ease-out forwards;
         }
 
-        @keyframes slice-piece {
-          0% { transform: translateY(0) rotate(0); opacity: 1; }
+        @keyframes blade-blur {
+          0% { opacity: 0; transform: translateX(-100%); }
+          50% { opacity: 0.5; }
+          100% { opacity: 0; transform: translateX(100%); }
+        }
+        .animate-blade-blur {
+          animation: blade-blur 0.3s ease-out forwards;
+        }
+
+        @keyframes spark-fly {
+          0% { transform: translate(0, 0) scale(1); opacity: 1; }
           100% {
-            transform: translateY(var(--end-y)) rotate(var(--rotation));
+            transform: translate(var(--end-x), var(--end-y)) scale(0);
             opacity: 0;
           }
         }
-        .animate-slice-piece {
-          animation: slice-piece 1s ease-out forwards;
+        .animate-spark-fly {
+          animation: spark-fly 0.6s ease-out forwards;
         }
 
         @keyframes sound-effect {
           0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
-          30% { transform: translate(-50%, -50%) scale(1.3) rotate(5deg); opacity: 1; }
-          50% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
-          80% { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); opacity: 1; }
+          20% { transform: translate(-50%, -50%) scale(1.3) rotate(5deg); opacity: 1; }
+          40% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+          70% { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); opacity: 1; }
           100% { transform: translate(-50%, -50%) scale(0) rotate(10deg); opacity: 0; }
         }
         .animate-sound-effect {
           animation: sound-effect 1.5s ease-out forwards;
-          animation-delay: 0.3s;
+          animation-delay: 0.2s;
         }
       `}</style>
     </div>
