@@ -1,14 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
+import { type Story } from '@/lib/stories';
 import { loadProgress, recordBookComplete, type GameProgress } from '@/lib/gameState';
 import Fireworks from './illustrations/Fireworks';
 
 interface CompletionScreenProps {
   story: Story;
-  gradeLevel: GradeLevel;
-  starsEarned: number;
   onReadAgain: () => void;
   onChooseAnother: () => void;
   onHome: () => void;
@@ -16,8 +14,6 @@ interface CompletionScreenProps {
 
 export default function CompletionScreen({
   story,
-  gradeLevel,
-  starsEarned,
   onReadAgain,
   onChooseAnother,
   onHome,
@@ -25,7 +21,6 @@ export default function CompletionScreen({
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [isNewBook, setIsNewBook] = useState(false);
   const [showFireworks, setShowFireworks] = useState(true);
-  const gradeInfo = gradeLevelInfo[gradeLevel];
 
   // Stop fireworks after a few seconds
   useEffect(() => {
@@ -69,13 +64,13 @@ export default function CompletionScreen({
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 w-full max-w-sm">
         <div className="flex justify-around text-center">
           <div>
-            <div className="text-3xl font-bold text-amber-500">{starsEarned}</div>
-            <div className="text-sm text-gray-500">Stars Earned</div>
+            <div className="text-3xl font-bold text-blue-500">{story.pages.length}</div>
+            <div className="text-sm text-gray-500">Pages Read</div>
           </div>
           <div className="w-px bg-gray-200" />
           <div>
-            <div className="text-3xl font-bold text-blue-500">{story.pages.length}</div>
-            <div className="text-sm text-gray-500">Pages Read</div>
+            <div className="text-3xl font-bold text-purple-500">{progress?.booksCompleted.length || 0}</div>
+            <div className="text-sm text-gray-500">Books Done</div>
           </div>
           <div className="w-px bg-gray-200" />
           <div>
@@ -91,15 +86,6 @@ export default function CompletionScreen({
             </span>
           </div>
         )}
-      </div>
-
-      {/* Total progress */}
-      <div className="text-center mb-8">
-        <p className="text-gray-400 text-sm mb-1">Total Stars Collected</p>
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-2xl">⭐</span>
-          <span className="text-3xl font-bold text-amber-600">{progress?.totalStars || 0}</span>
-        </div>
       </div>
 
       {/* Action buttons */}

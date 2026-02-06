@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
-import { calculatePageStars, recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
+import { recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
 import StoryScene from './illustrations/StoryScene';
 import PageTransition from './illustrations/PageTransition';
 
@@ -11,7 +11,7 @@ interface StoryReaderProps {
   story: Story;
   gradeLevel: GradeLevel;
   onBack: () => void;
-  onComplete: (starsEarned: number) => void;
+  onComplete: () => void;
 }
 
 interface WordState {
@@ -33,23 +33,11 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState<string | null>(null);
   const [pageComplete, setPageComplete] = useState(false);
-  const [starsEarned, setStarsEarned] = useState(0);
-  const [totalStarsThisBook, setTotalStarsThisBook] = useState(0);
-  const [showCelebration, setShowCelebration] = useState(false);
   const [showPageTransition, setShowPageTransition] = useState(false);
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Find the next word that needs to be read (left-to-right enforcement)
-  const getNextWordToRead = (): number => {
-    for (let i = 0; i < wordStates.length; i++) {
-      if (!wordStates[i].isCompleted) return i;
-    }
-    return -1; // All words completed
-  };
-
-  const gradeInfo = gradeLevelInfo[gradeLevel];
   const pageText = story.pages[currentPage];
   const totalPages = story.pages.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -74,32 +62,33 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     })));
     setActiveWordIndex(null);
     setPageComplete(false);
-    setShowCelebration(false);
-    setStarsEarned(0);
     wordRefs.current = [];
   }, [pageText, currentPage]);
 
-  // Check page completion
+  // Check page completion - immediately trigger transition (no star modal)
   useEffect(() => {
     if (wordStates.length > 0 && wordStates.every(w => w.isCompleted) && !pageComplete) {
-      const struggledCount = wordStates.filter(w => w.isStruggling).length;
-      const stars = calculatePageStars(wordStates.length, wordStates.length, struggledCount);
-      setStarsEarned(stars);
       setPageComplete(true);
 
-      // Delay celebration slightly for smooth UX
+      // Record progress
+      if (progress) {
+        setProgress(recordPageComplete(progress, 1));
+      }
+
+      // Small delay then show page transition
       setTimeout(() => {
-        setShowCelebration(true);
-        if (progress) {
-          setProgress(recordPageComplete(progress, stars));
+        if (isLastPage) {
+          onComplete();
+        } else {
+          setShowPageTransition(true);
         }
-      }, 400);
+      }, 300);
     }
-  }, [wordStates, pageComplete, progress]);
+  }, [wordStates, pageComplete, progress, isLastPage, onComplete]);
 
   // Handle pointer movement - enforces left-to-right reading order
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!containerRef.current || showHelp || showCelebration || showPageTransition) return;
+    if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
 
     const y = e.clientY - 50;
     const x = e.clientX;
@@ -142,26 +131,13 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       setActiveWordIndex(null);
       setWordStates(prev => prev.map(ws => ({ ...ws, isActive: false })));
     }
-  }, [activeWordIndex, showHelp, showCelebration, showPageTransition, wordStates]);
+  }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates]);
 
   // Word tap for help
   const handleWordTap = (index: number) => {
     const ws = wordStates[index];
     if (ws.visitCount >= 2 || ws.isStruggling) {
       setShowHelp(ws.cleanWord);
-    }
-  };
-
-  // Navigation - shows page transition animation between pages
-  const handleNextPage = () => {
-    setTotalStarsThisBook(prev => prev + starsEarned);
-    setShowCelebration(false);
-
-    if (isLastPage) {
-      onComplete(totalStarsThisBook + starsEarned);
-    } else {
-      // Show page transition animation
-      setShowPageTransition(true);
     }
   };
 
@@ -238,10 +214,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           </div>
         </div>
 
-        {/* Stars collected */}
-        <div className="flex items-center gap-1 bg-amber-50 px-3 py-1.5 rounded-full">
-          <span className="text-amber-500">⭐</span>
-          <span className="text-sm font-semibold text-amber-700">{progress?.totalStars || 0}</span>
+        {/* Progress indicator */}
+        <div className="flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full">
+          <span className="text-blue-500">📖</span>
+          <span className="text-sm font-semibold text-blue-700">{currentPage + 1}/{totalPages}</span>
         </div>
       </header>
 
@@ -334,59 +310,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         </div>
       )}
 
-      {/* Page completion celebration */}
-      {showCelebration && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-bounce-in">
-            {/* Stars earned */}
-            <div className="flex justify-center gap-2 mb-4">
-              {[1, 2, 3].map(n => (
-                <span
-                  key={n}
-                  className={`text-4xl transition-all duration-300 ${
-                    n <= starsEarned ? 'opacity-100 scale-100' : 'opacity-20 scale-75'
-                  }`}
-                  style={{ animationDelay: `${n * 100}ms` }}
-                >
-                  ⭐
-                </span>
-              ))}
-            </div>
-
-            <h2 className="text-2xl font-bold text-gray-800 mb-1">
-              {starsEarned === 3 ? 'Perfect!' : starsEarned === 2 ? 'Great job!' : 'Good work!'}
-            </h2>
-            <p className="text-gray-500 mb-6">
-              You earned {starsEarned} {starsEarned === 1 ? 'star' : 'stars'}!
-            </p>
-
-            <button
-              onClick={handleNextPage}
-              className="w-full py-4 bg-blue-500 text-white rounded-xl font-semibold text-lg hover:bg-blue-600 transition-colors"
-            >
-              {isLastPage ? 'Finish Book 🎉' : 'Next Page →'}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Page transition animation */}
       <PageTransition
         show={showPageTransition}
         storyId={story.id}
         onComplete={handlePageTransitionComplete}
       />
-
-      <style jsx>{`
-        @keyframes bounce-in {
-          0% { transform: scale(0.9); opacity: 0; }
-          50% { transform: scale(1.02); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-bounce-in {
-          animation: bounce-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }

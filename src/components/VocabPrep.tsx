@@ -38,8 +38,7 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
   const [isComplete, setIsComplete] = useState(false);
   const [showSpeakAnimation, setShowSpeakAnimation] = useState(false);
 
-  const { speak, speakSlowly, isSpeaking, isSupported } = useSpeech();
-  const gradeInfo = gradeLevelInfo[gradeLevel];
+  const { speak, speakSlowly, isSpeaking, hasAudio } = useSpeech();
   const vocabWords = getKeyWords(story, gradeLevel);
 
   // If no vocab words, skip directly to story
@@ -52,9 +51,10 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
   const currentWord = vocabWords[currentWordIndex];
   const syllables = currentWord ? getSyllables(currentWord) : [];
   const hint = currentWord ? getAgeAppropriateHint(currentWord, gradeLevel) : '';
+  const wordHasAudio = currentWord ? hasAudio(currentWord) : false;
 
   const handlePlayWord = () => {
-    if (currentWord) {
+    if (currentWord && wordHasAudio) {
       setShowSpeakAnimation(true);
       speak(currentWord);
       setTimeout(() => setShowSpeakAnimation(false), 1000);
@@ -62,7 +62,7 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
   };
 
   const handlePlaySlowly = () => {
-    if (currentWord) {
+    if (currentWord && wordHasAudio) {
       setShowSpeakAnimation(true);
       speakSlowly(currentWord);
       setTimeout(() => setShowSpeakAnimation(false), 2000);
@@ -71,10 +71,12 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
 
   const handleRevealWord = () => {
     setRevealedWords(prev => new Set(prev).add(currentWordIndex));
-    // Auto-play the word when revealed
-    setTimeout(() => {
-      if (currentWord) speakSlowly(currentWord);
-    }, 300);
+    // Auto-play the word when revealed (if audio exists)
+    if (currentWord && hasAudio(currentWord)) {
+      setTimeout(() => {
+        speakSlowly(currentWord);
+      }, 300);
+    }
   };
 
   const handleNextWord = () => {
@@ -163,8 +165,8 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
                   )}
                 </div>
 
-                {/* Play button - always visible */}
-                {isSupported && (
+                {/* Play buttons - only show if audio exists */}
+                {wordHasAudio ? (
                   <div className="flex justify-center gap-3 mb-4">
                     <button
                       onClick={handlePlayWord}
@@ -191,6 +193,15 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
                       <span className="text-xl">🐢</span>
                       <span>Slow</span>
                     </button>
+                  </div>
+                ) : (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-xl">
+                    <p className="text-gray-400 text-sm">
+                      No audio uploaded for this word.
+                      <a href="/admin" className="text-blue-500 hover:underline ml-1">
+                        Add in Admin →
+                      </a>
+                    </p>
                   </div>
                 )}
 
@@ -237,7 +248,7 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
 
             {/* Encouragement */}
             <p className="text-center text-gray-500 text-sm mt-6">
-              Tap the speaker to hear the word! 🔊
+              {wordHasAudio ? 'Tap the speaker to hear the word! 🔊' : 'Practice saying this word out loud!'}
             </p>
           </div>
         ) : (
@@ -251,15 +262,22 @@ export default function VocabPrep({ story, gradeLevel, onComplete, onBack }: Voc
               </p>
 
               <div className="flex flex-wrap justify-center gap-2 mb-6">
-                {vocabWords.map((word, i) => (
-                  <button
-                    key={i}
-                    onClick={() => speak(word)}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium hover:bg-blue-200 transition-colors cursor-pointer"
-                  >
-                    🔊 {word}
-                  </button>
-                ))}
+                {vocabWords.map((word, i) => {
+                  const canPlay = hasAudio(word);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => canPlay && speak(word)}
+                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        canPlay
+                          ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer'
+                          : 'bg-gray-100 text-gray-500 cursor-default'
+                      }`}
+                    >
+                      {canPlay && '🔊 '}{word}
+                    </button>
+                  );
+                })}
               </div>
 
               <button
