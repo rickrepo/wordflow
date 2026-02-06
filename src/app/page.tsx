@@ -1,22 +1,96 @@
-import WordFlow from "@/components/WordFlow";
+'use client';
 
-// Sample story for children - simple, engaging words
-const sampleStory = `
-Once upon a time, there was a little cat named Whiskers.
-Whiskers loved to play in the sunny garden.
-One day, she found a big red ball.
-The ball bounced high into the sky!
-Whiskers jumped and jumped, but the ball was too high.
-A friendly bird came down and helped.
-Together, they played all day long.
-When the sun went down, Whiskers went home happy.
-The end.
-`.trim();
+import { useState } from 'react';
+import HomePage from '@/components/HomePage';
+import StoryLibrary from '@/components/StoryLibrary';
+import BookReader from '@/components/BookReader';
+import CompletionScreen from '@/components/CompletionScreen';
+import type { GradeLevel, Story } from '@/lib/stories';
 
-export default function Home() {
-  return (
-    <main className="h-full w-full">
-      <WordFlow text={sampleStory} title="The Cat and the Ball" />
-    </main>
-  );
+type AppState = 'home' | 'library' | 'reading' | 'complete';
+
+export default function App() {
+  const [appState, setAppState] = useState<AppState>('home');
+  const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+
+  const handleSelectGrade = (grade: GradeLevel) => {
+    setSelectedGrade(grade);
+    setAppState('library');
+  };
+
+  const handleSelectStory = (story: Story) => {
+    setSelectedStory(story);
+    setAppState('reading');
+  };
+
+  const handleBackToHome = () => {
+    setSelectedGrade(null);
+    setSelectedStory(null);
+    setAppState('home');
+  };
+
+  const handleBackToLibrary = () => {
+    setSelectedStory(null);
+    setAppState('library');
+  };
+
+  const handleComplete = () => {
+    setAppState('complete');
+  };
+
+  const handleReadAgain = () => {
+    setAppState('reading');
+  };
+
+  // Render based on app state
+  switch (appState) {
+    case 'home':
+      return <HomePage onSelectGrade={handleSelectGrade} />;
+
+    case 'library':
+      if (!selectedGrade) {
+        setAppState('home');
+        return null;
+      }
+      return (
+        <StoryLibrary
+          gradeLevel={selectedGrade}
+          onSelectStory={handleSelectStory}
+          onBack={handleBackToHome}
+        />
+      );
+
+    case 'reading':
+      if (!selectedGrade || !selectedStory) {
+        setAppState('home');
+        return null;
+      }
+      return (
+        <BookReader
+          story={selectedStory}
+          gradeLevel={selectedGrade}
+          onBack={handleBackToLibrary}
+          onComplete={handleComplete}
+        />
+      );
+
+    case 'complete':
+      if (!selectedGrade || !selectedStory) {
+        setAppState('home');
+        return null;
+      }
+      return (
+        <CompletionScreen
+          story={selectedStory}
+          gradeLevel={selectedGrade}
+          onReadAgain={handleReadAgain}
+          onChooseAnother={handleBackToLibrary}
+          onHome={handleBackToHome}
+        />
+      );
+
+    default:
+      return <HomePage onSelectGrade={handleSelectGrade} />;
+  }
 }
