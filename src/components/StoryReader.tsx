@@ -5,6 +5,7 @@ import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
 import { calculatePageStars, recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
 import StoryScene from './illustrations/StoryScene';
+import PageTransition from './illustrations/PageTransition';
 
 interface StoryReaderProps {
   story: Story;
@@ -35,9 +36,18 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [starsEarned, setStarsEarned] = useState(0);
   const [totalStarsThisBook, setTotalStarsThisBook] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showPageTransition, setShowPageTransition] = useState(false);
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Find the next word that needs to be read (left-to-right enforcement)
+  const getNextWordToRead = (): number => {
+    for (let i = 0; i < wordStates.length; i++) {
+      if (!wordStates[i].isCompleted) return i;
+    }
+    return -1; // All words completed
+  };
 
   const gradeInfo = gradeLevelInfo[gradeLevel];
   const pageText = story.pages[currentPage];
@@ -87,9 +97,9 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   }, [wordStates, pageComplete, progress]);
 
-  // Handle pointer movement
+  // Handle pointer movement - enforces left-to-right reading order
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!containerRef.current || showHelp || showCelebration) return;
+    if (!containerRef.current || showHelp || showCelebration || showPageTransition) return;
 
     const y = e.clientY - 50;
     const x = e.clientX;
@@ -106,16 +116,24 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     });
 
     if (foundIndex !== null && foundIndex !== activeWordIndex) {
+      // Get the next word that should be read
+      const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
+
+      // Only allow completing the next word in sequence (left-to-right)
+      // But allow highlighting any word for visual feedback
       setActiveWordIndex(foundIndex);
+
       setWordStates(prev => prev.map((ws, i) => {
         if (i === foundIndex) {
           const newVisitCount = ws.visitCount + 1;
+          // Only mark as completed if it's the next word in sequence OR already completed
+          const canComplete = i === nextToRead || ws.isCompleted || nextToRead === -1;
           return {
             ...ws,
             isActive: true,
             visitCount: newVisitCount,
-            isStruggling: newVisitCount >= STRUGGLE_THRESHOLD,
-            isCompleted: true,
+            isStruggling: canComplete ? newVisitCount >= STRUGGLE_THRESHOLD : ws.isStruggling,
+            isCompleted: canComplete ? true : ws.isCompleted,
           };
         }
         return { ...ws, isActive: false };
@@ -124,7 +142,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       setActiveWordIndex(null);
       setWordStates(prev => prev.map(ws => ({ ...ws, isActive: false })));
     }
-  }, [activeWordIndex, showHelp, showCelebration]);
+  }, [activeWordIndex, showHelp, showCelebration, showPageTransition, wordStates]);
 
   // Word tap for help
   const handleWordTap = (index: number) => {
@@ -134,7 +152,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   };
 
-  // Navigation
+  // Navigation - shows page transition animation between pages
   const handleNextPage = () => {
     setTotalStarsThisBook(prev => prev + starsEarned);
     setShowCelebration(false);
@@ -142,33 +160,54 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     if (isLastPage) {
       onComplete(totalStarsThisBook + starsEarned);
     } else {
-      setCurrentPage(prev => prev + 1);
+      // Show page transition animation
+      setShowPageTransition(true);
     }
   };
 
-  // Render word
-  const renderWord = (ws: WordState, index: number) => (
-    <span
-      key={index}
-      ref={el => { wordRefs.current[index] = el; }}
-      onClick={() => handleWordTap(index)}
-      className={`
-        inline-block px-2 py-1 mx-0.5 my-1 rounded-lg cursor-pointer select-none
-        transition-all duration-150 ease-out
-        text-2xl md:text-3xl lg:text-4xl
-        ${ws.isActive
-          ? 'bg-blue-500 text-white scale-105 shadow-lg'
-          : ws.isCompleted
-            ? 'bg-blue-50 text-gray-800'
-            : 'text-gray-400'}
-      `}
-    >
-      {ws.cleanWord}{ws.punctuation}
-      {ws.isStruggling && !ws.isActive && (
-        <span className="absolute -top-1 -right-1 text-sm">💡</span>
-      )}
-    </span>
-  );
+  // Called when page transition animation completes
+  const handlePageTransitionComplete = () => {
+    setShowPageTransition(false);
+    setCurrentPage(prev => prev + 1);
+  };
+
+  // Find the next word to read for highlighting
+  const nextWordIndex = wordStates.findIndex(ws => !ws.isCompleted);
+
+  // Render word - shows which word is next with a subtle indicator
+  const renderWord = (ws: WordState, index: number) => {
+    const isNextWord = index === nextWordIndex;
+
+    return (
+      <span
+        key={index}
+        ref={el => { wordRefs.current[index] = el; }}
+        onClick={() => handleWordTap(index)}
+        className={`
+          inline-block px-2 py-1 mx-0.5 my-1 rounded-lg cursor-pointer select-none
+          transition-all duration-150 ease-out relative
+          text-2xl md:text-3xl lg:text-4xl
+          ${ws.isActive
+            ? 'bg-blue-500 text-white scale-105 shadow-lg'
+            : ws.isCompleted
+              ? 'bg-blue-50 text-gray-800'
+              : isNextWord
+                ? 'text-gray-700 bg-amber-50 ring-2 ring-amber-300 ring-opacity-50'
+                : 'text-gray-300'}
+        `}
+      >
+        {ws.cleanWord}{ws.punctuation}
+        {ws.isStruggling && !ws.isActive && (
+          <span className="absolute -top-1 -right-1 text-sm">💡</span>
+        )}
+        {isNextWord && !ws.isActive && (
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-amber-500 text-xs animate-bounce">
+            ▲
+          </span>
+        )}
+      </span>
+    );
+  };
 
   return (
     <div
@@ -225,8 +264,8 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           </div>
 
           {/* Instruction */}
-          <p className="text-center text-gray-400 text-sm mt-6">
-            Slide your finger under each word as you read
+          <p className="text-center text-gray-500 text-sm mt-6">
+            Slide your finger under each word from left to right
           </p>
         </div>
       </main>
@@ -330,6 +369,13 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           </div>
         </div>
       )}
+
+      {/* Page transition animation */}
+      <PageTransition
+        show={showPageTransition}
+        storyId={story.id}
+        onComplete={handlePageTransitionComplete}
+      />
 
       <style jsx>{`
         @keyframes bounce-in {
