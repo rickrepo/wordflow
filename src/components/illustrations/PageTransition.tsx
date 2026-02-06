@@ -13,31 +13,31 @@ type TransitionType =
   | 'monster-grab'
   | 'cat-swipe'
   | 'dog-shake'
-  | 'tornado-spin'
-  | 'rocket-crash'
-  | 'giant-tongue'
-  | 'ninja-slice';
+  | 'bird-swoop'
+  | 'bear-peek'
+  | 'frog-tongue'
+  | 'butterfly-flutter';
 
-// Pool of crazy transitions
 const transitionPool: TransitionType[] = [
   'dinosaur-bite',
   'monster-grab',
   'cat-swipe',
   'dog-shake',
-  'tornado-spin',
-  'rocket-crash',
-  'giant-tongue',
-  'ninja-slice',
+  'bird-swoop',
+  'bear-peek',
+  'frog-tongue',
+  'butterfly-flutter',
 ];
 
-// Generate confetti particles
-function generateConfetti(count: number) {
+// Generate paper scraps that fly around
+function generatePaperScraps(count: number) {
   return Array.from({ length: count }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
-    delay: Math.random() * 0.3,
-    size: 8 + Math.random() * 12,
-    color: ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA', '#FCBAD3'][Math.floor(Math.random() * 7)],
+    delay: Math.random() * 0.5,
+    size: 15 + Math.random() * 25,
+    rotation: Math.random() * 360,
+    color: ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#8E24AA', '#F06292'][Math.floor(Math.random() * 7)],
   }));
 }
 
@@ -45,13 +45,12 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
   const [isAnimating, setIsAnimating] = useState(false);
   const [transitionKey, setTransitionKey] = useState(0);
 
-  // Pick a random transition each time
   const transition = useMemo(() => {
     return transitionPool[Math.floor(Math.random() * transitionPool.length)];
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transitionKey]);
 
-  const confetti = useMemo(() => generateConfetti(30), [transitionKey]);
+  const paperScraps = useMemo(() => generatePaperScraps(15), [transitionKey]);
 
   useEffect(() => {
     if (show) {
@@ -60,372 +59,338 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
       const timer = setTimeout(() => {
         setIsAnimating(false);
         onComplete();
-      }, 2200);
+      }, 2500);
       return () => clearTimeout(timer);
     }
   }, [show, onComplete]);
 
   if (!show || !isAnimating) return null;
 
-  const encouragements = ['CHOMP!', 'WOOSH!', 'SWOOSH!', 'CRASH!', 'ZOOM!', 'POW!', 'WHOA!', 'WOW!'];
-  const encouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
+  const sounds = ['CHOMP!', 'RAWR!', 'MEOW!', 'WOOF!', 'TWEET!', 'ROAR!', 'RIBBIT!', 'FLUTTER!'];
+  const soundEffect = sounds[transitionPool.indexOf(transition)];
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden pointer-events-none">
-      {/* Semi-transparent overlay that dims the scene slightly during transition */}
-      <div className="absolute inset-0 bg-black/10 animate-flash-dim" />
+      {/* Paper texture filter definitions */}
+      <svg className="absolute w-0 h-0">
+        <defs>
+          {/* Rough paper edge filter */}
+          <filter id="paperRough" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          {/* Texture overlay */}
+          <filter id="paperTexture">
+            <feTurbulence type="turbulence" baseFrequency="0.5" numOctaves="3" result="noise" />
+            <feColorMatrix type="saturate" values="0" />
+            <feBlend in="SourceGraphic" in2="noise" mode="multiply" />
+          </filter>
+          {/* Cutout shadow */}
+          <filter id="cutoutShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="4" dy="4" stdDeviation="2" floodColor="#000" floodOpacity="0.3" />
+          </filter>
+        </defs>
+      </svg>
 
-      {/* DINOSAUR BITE - A T-Rex head comes in and chomps at the text area */}
+      {/* Slight dim overlay */}
+      <div className="absolute inset-0 bg-black/5 animate-flash-dim" />
+
+      {/* DINOSAUR - Eric Carle style tissue paper T-Rex */}
       {transition === 'dinosaur-bite' && (
-        <>
-          {/* Bite mark overlay - semi-transparent to show scene through */}
-          <div className="absolute top-0 right-0 w-1/2 h-1/2 animate-bite-reveal">
-            <svg viewBox="0 0 200 200" className="w-full h-full">
-              <path
-                d="M200,0 L200,200 L0,200 L0,150 Q30,140 40,120 Q50,100 40,80 Q30,60 50,40 Q70,20 60,0 Z"
-                fill="rgba(0,0,0,0.3)"
-              />
-            </svg>
-          </div>
-          {/* T-Rex head */}
-          <div className="absolute -right-40 top-1/4 animate-dino-chomp drop-shadow-2xl">
-            <svg width="400" height="300" viewBox="0 0 400 300">
-              {/* Head */}
-              <ellipse cx="250" cy="150" rx="150" ry="100" fill="#2D5A27" />
-              <ellipse cx="250" cy="150" rx="140" ry="90" fill="#3D7A37" />
-              {/* Snout */}
-              <ellipse cx="80" cy="140" rx="100" ry="60" fill="#3D7A37" />
-              <ellipse cx="60" cy="130" rx="80" ry="45" fill="#4D8A47" />
-              {/* Nostril */}
-              <ellipse cx="20" cy="110" rx="8" ry="12" fill="#1D3A17" />
-              {/* Eye */}
-              <circle cx="280" cy="100" r="35" fill="white" />
-              <circle cx="290" cy="100" r="20" fill="#1a1a1a" />
-              <circle cx="295" cy="95" r="6" fill="white" />
-              {/* Angry eyebrow */}
-              <path d="M240,60 Q280,50 320,70" stroke="#1D3A17" strokeWidth="12" fill="none" />
-              {/* Teeth - top jaw */}
-              <path d="M0,160 L20,200 L40,160 L60,200 L80,160 L100,200 L120,160 L140,200 L160,160"
-                    fill="white" stroke="#ddd" strokeWidth="2" />
-              {/* Teeth - bottom jaw */}
-              <path d="M10,180 L30,140 L50,180 L70,140 L90,180 L110,140 L130,180 L150,140"
-                    fill="white" stroke="#ddd" strokeWidth="2" className="animate-jaw" />
-              {/* Scales */}
-              <circle cx="320" cy="80" r="15" fill="#2D5A27" />
-              <circle cx="350" cy="110" r="12" fill="#2D5A27" />
-              <circle cx="370" cy="150" r="10" fill="#2D5A27" />
-            </svg>
-          </div>
-          {/* Paper/text crumbs flying from the "bite" */}
-          {confetti.slice(0, 15).map((c) => (
-            <div
-              key={c.id}
-              className="absolute animate-crumb-fly"
-              style={{
-                right: '30%',
-                top: '30%',
-                '--end-x': `${(Math.random() - 0.5) * 300}px`,
-                '--end-y': `${Math.random() * 200 + 100}px`,
-                animationDelay: `${0.3 + c.delay}s`,
-              } as React.CSSProperties}
-            >
-              <div
-                className="rounded-sm bg-white/80 shadow-md"
-                style={{ width: c.size, height: c.size }}
-              />
-            </div>
-          ))}
-        </>
+        <div className="absolute -right-20 top-1/4 animate-dino-chomp" style={{ filter: 'url(#cutoutShadow)' }}>
+          <svg width="450" height="350" viewBox="0 0 450 350">
+            {/* Body - layered tissue paper effect */}
+            <path d="M380,180 Q400,120 350,100 Q300,80 280,120 Q260,80 220,100 Q180,80 150,130 Q120,100 100,150 Q80,130 90,180 Q60,200 100,220 Q80,260 130,260 Q100,300 160,290 Q140,320 200,300 Q180,340 250,310 Q240,350 300,320 Q320,350 350,300 Q380,320 390,270 Q420,280 410,230 Q440,220 420,190 Q450,170 380,180"
+                  fill="#2E7D32" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M360,190 Q370,140 330,120 Q290,100 270,140 Q250,110 220,130 Q190,120 170,160 Q150,140 140,180 Q120,170 130,210 Q110,230 150,240 Q130,270 170,265 Q160,290 200,280 Q190,310 240,295 Q250,320 290,300 Q310,320 330,285 Q360,300 365,250 Q390,260 380,220 Q400,200 360,190"
+                  fill="#43A047" style={{ filter: 'url(#paperRough)' }} />
+            {/* Head */}
+            <path d="M50,160 Q20,140 30,180 Q10,200 50,210 Q30,230 70,230 Q50,250 100,240 Q90,260 140,250 Q150,200 120,180 Q140,160 100,150 Q120,130 70,140 Q80,120 50,160"
+                  fill="#388E3C" style={{ filter: 'url(#paperRough)' }} />
+            {/* Eye - white circle with black dot */}
+            <circle cx="80" cy="175" r="18" fill="#FFF9C4" />
+            <circle cx="85" cy="175" r="10" fill="#1a1a1a" />
+            <circle cx="88" cy="172" r="3" fill="white" />
+            {/* Teeth - jagged white paper */}
+            <path d="M30,195 L40,215 L50,195 L60,215 L70,195 L80,215 L90,195" fill="white" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M35,205 L45,185 L55,205 L65,185 L75,205 L85,185" fill="#ECEFF1" style={{ filter: 'url(#paperRough)' }} />
+            {/* Spikes on back */}
+            <path d="M200,95 L215,60 L230,95" fill="#1B5E20" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M260,85 L280,45 L300,90" fill="#2E7D32" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M320,95 L345,55 L365,100" fill="#1B5E20" style={{ filter: 'url(#paperRough)' }} />
+            {/* Legs - simple cutout style */}
+            <path d="M160,290 L150,350 L180,350 L175,290" fill="#2E7D32" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M280,300 L270,350 L300,350 L295,300" fill="#2E7D32" style={{ filter: 'url(#paperRough)' }} />
+          </svg>
+        </div>
       )}
 
-      {/* MONSTER GRAB - Giant furry hand reaches in and grabs */}
+      {/* MONSTER - Fuzzy felt monster hand */}
       {transition === 'monster-grab' && (
-        <>
-          {/* Claw scratch marks on screen */}
-          <div className="absolute inset-0 animate-scratch-marks pointer-events-none">
-            <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-              <path d="M20,10 Q25,50 30,90" stroke="rgba(0,0,0,0.2)" strokeWidth="3" fill="none" className="animate-scratch-line" />
-              <path d="M40,5 Q45,50 50,95" stroke="rgba(0,0,0,0.25)" strokeWidth="4" fill="none" className="animate-scratch-line" style={{ animationDelay: '0.1s' }} />
-              <path d="M60,8 Q65,50 70,92" stroke="rgba(0,0,0,0.2)" strokeWidth="3" fill="none" className="animate-scratch-line" style={{ animationDelay: '0.2s' }} />
-            </svg>
-          </div>
-          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 animate-monster-grab drop-shadow-2xl">
-            <svg width="400" height="300" viewBox="0 0 400 300">
-              {/* Furry arm */}
-              <ellipse cx="200" cy="280" rx="100" ry="60" fill="#8B4513" />
-              {/* Palm */}
-              <ellipse cx="200" cy="150" rx="120" ry="80" fill="#A0522D" />
-              {/* Fingers */}
-              <ellipse cx="80" cy="80" rx="35" ry="70" fill="#8B4513" className="origin-bottom animate-finger-curl" style={{ animationDelay: '0.1s' }} />
-              <ellipse cx="140" cy="50" rx="30" ry="80" fill="#8B4513" className="origin-bottom animate-finger-curl" style={{ animationDelay: '0.15s' }} />
-              <ellipse cx="200" cy="40" rx="30" ry="85" fill="#8B4513" className="origin-bottom animate-finger-curl" style={{ animationDelay: '0.2s' }} />
-              <ellipse cx="260" cy="50" rx="30" ry="80" fill="#8B4513" className="origin-bottom animate-finger-curl" style={{ animationDelay: '0.25s' }} />
-              <ellipse cx="320" cy="80" rx="35" ry="70" fill="#8B4513" className="origin-bottom animate-finger-curl" style={{ animationDelay: '0.3s' }} />
-              {/* Claws */}
-              {[80, 140, 200, 260, 320].map((x, i) => (
-                <ellipse key={i} cx={x} cy={i === 2 ? -20 : i === 0 || i === 4 ? 30 : 0} rx="12" ry="25" fill="#2a2a2a" />
-              ))}
-              {/* Fur texture */}
-              {[...Array(20)].map((_, i) => (
-                <line
-                  key={i}
-                  x1={100 + Math.random() * 200}
-                  y1={120 + Math.random() * 60}
-                  x2={100 + Math.random() * 200}
-                  y2={130 + Math.random() * 60}
-                  stroke="#6B3513"
-                  strokeWidth="3"
-                />
-              ))}
-            </svg>
-          </div>
-        </>
+        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 animate-monster-grab" style={{ filter: 'url(#cutoutShadow)' }}>
+          <svg width="400" height="350" viewBox="0 0 400 350">
+            {/* Furry arm - layered purple paper strips */}
+            <path d="M150,350 Q140,320 160,280 Q140,260 170,240 Q150,220 180,200 Q160,180 190,160 Q200,120 200,100"
+                  stroke="#7B1FA2" strokeWidth="80" fill="none" strokeLinecap="round" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M250,350 Q260,320 240,280 Q260,260 230,240 Q250,220 220,200 Q240,180 210,160 Q200,120 200,100"
+                  stroke="#9C27B0" strokeWidth="60" fill="none" strokeLinecap="round" style={{ filter: 'url(#paperRough)' }} />
+            {/* Palm */}
+            <ellipse cx="200" cy="100" rx="90" ry="60" fill="#AB47BC" style={{ filter: 'url(#paperRough)' }} />
+            {/* Fingers - individual paper cutouts */}
+            <ellipse cx="100" cy="60" rx="25" ry="55" fill="#9C27B0" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="150" cy="40" rx="22" ry="60" fill="#8E24AA" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="200" cy="30" rx="22" ry="65" fill="#9C27B0" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="250" cy="40" rx="22" ry="60" fill="#8E24AA" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="300" cy="60" rx="25" ry="55" fill="#9C27B0" style={{ filter: 'url(#paperRough)' }} />
+            {/* Claws - black paper triangles */}
+            <path d="M100,5 L90,30 L110,30 Z" fill="#212121" />
+            <path d="M150,-20 L140,10 L160,10 Z" fill="#212121" />
+            <path d="M200,-35 L190,0 L210,0 Z" fill="#212121" />
+            <path d="M250,-20 L240,10 L260,10 Z" fill="#212121" />
+            <path d="M300,5 L290,30 L310,30 Z" fill="#212121" />
+            {/* Fur tufts - little paper strips */}
+            {[...Array(12)].map((_, i) => (
+              <path key={i} d={`M${160 + Math.random()*80},${80 + Math.random()*40} l${Math.random()*20-10},${Math.random()*15}`}
+                    stroke="#7B1FA2" strokeWidth="4" strokeLinecap="round" />
+            ))}
+          </svg>
+        </div>
       )}
 
-      {/* CAT SWIPE - Cat paw swipes across and bats at the text */}
+      {/* CAT - Orange tabby paper cutout */}
       {transition === 'cat-swipe' && (
-        <>
-          <div className="absolute -left-40 top-1/3 animate-cat-swipe drop-shadow-2xl">
-            <svg width="300" height="200" viewBox="0 0 300 200">
-              {/* Arm */}
-              <ellipse cx="50" cy="100" rx="80" ry="50" fill="#FF9F43" />
-              {/* Paw */}
-              <ellipse cx="200" cy="100" rx="80" ry="60" fill="#FFB366" />
-              {/* Paw pads */}
-              <ellipse cx="180" cy="130" rx="25" ry="20" fill="#FF7675" />
-              <ellipse cx="220" cy="80" rx="15" ry="12" fill="#FF7675" />
-              <ellipse cx="250" cy="95" rx="15" ry="12" fill="#FF7675" />
-              <ellipse cx="250" cy="125" rx="15" ry="12" fill="#FF7675" />
-              {/* Claws extended */}
-              <path d="M270,70 Q290,50 280,80" fill="white" stroke="#ddd" strokeWidth="2" />
-              <path d="M285,90 Q310,75 295,105" fill="white" stroke="#ddd" strokeWidth="2" />
-              <path d="M285,120 Q310,115 295,140" fill="white" stroke="#ddd" strokeWidth="2" />
-              {/* Stripes */}
-              <path d="M80,70 Q100,80 80,100" stroke="#E67E22" strokeWidth="8" fill="none" />
-              <path d="M60,90 Q80,100 60,120" stroke="#E67E22" strokeWidth="8" fill="none" />
-            </svg>
-          </div>
-          {/* Items being batted around */}
-          {confetti.slice(0, 8).map((c) => (
-            <div
-              key={c.id}
-              className="absolute animate-fly-off-screen"
-              style={{
-                left: `${20 + c.x * 0.6}%`,
-                top: '40%',
-                animationDelay: `${0.2 + c.delay}s`,
-              }}
-            >
-              <span className="text-3xl drop-shadow-lg">{['📚', '✏️', '📖', '🎨', '⭐', '✨', '💫', '🌟'][c.id % 8]}</span>
-            </div>
-          ))}
-        </>
+        <div className="absolute -left-32 top-1/3 animate-cat-swipe" style={{ filter: 'url(#cutoutShadow)' }}>
+          <svg width="350" height="200" viewBox="0 0 350 200">
+            {/* Arm */}
+            <path d="M0,100 Q40,90 80,100 Q120,90 160,100 Q200,95 240,100"
+                  stroke="#FF8A65" strokeWidth="70" fill="none" strokeLinecap="round" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M0,100 Q40,95 80,100 Q120,95 160,100 Q200,98 240,100"
+                  stroke="#FFAB91" strokeWidth="50" fill="none" strokeLinecap="round" style={{ filter: 'url(#paperRough)' }} />
+            {/* Paw */}
+            <ellipse cx="280" cy="100" rx="60" ry="50" fill="#FFCCBC" style={{ filter: 'url(#paperRough)' }} />
+            {/* Paw pads - pink paper circles */}
+            <ellipse cx="265" cy="120" rx="18" ry="15" fill="#F48FB1" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="295" cy="80" rx="12" ry="10" fill="#F48FB1" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="310" cy="100" rx="12" ry="10" fill="#F48FB1" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="305" cy="125" rx="12" ry="10" fill="#F48FB1" style={{ filter: 'url(#paperRough)' }} />
+            {/* Claws */}
+            <path d="M320,65 Q340,50 330,75" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" />
+            <path d="M335,85 Q355,75 340,100" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" />
+            <path d="M335,115 Q355,115 340,135" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" />
+            {/* Stripes on arm - darker orange paper */}
+            <path d="M60,70 Q70,100 60,130" stroke="#E65100" strokeWidth="12" fill="none" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M110,75 Q120,100 110,125" stroke="#E65100" strokeWidth="10" fill="none" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M160,80 Q170,100 160,120" stroke="#E65100" strokeWidth="8" fill="none" style={{ filter: 'url(#paperRough)' }} />
+          </svg>
+        </div>
       )}
 
-      {/* DOG SHAKE - Dog head appears shaking with excitement */}
+      {/* DOG - Brown paper cutout dog head */}
       {transition === 'dog-shake' && (
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 animate-dog-head-shake" style={{ filter: 'url(#cutoutShadow)' }}>
+          <svg width="280" height="260" viewBox="0 0 280 260">
+            {/* Head - brown paper layers */}
+            <ellipse cx="140" cy="130" rx="110" ry="90" fill="#795548" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="140" cy="135" rx="95" ry="75" fill="#8D6E63" style={{ filter: 'url(#paperRough)' }} />
+            {/* Ears - floppy paper cutouts */}
+            <path d="M30,80 Q10,40 20,100 Q5,140 40,130 Q30,110 30,80" fill="#5D4037" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M250,80 Q270,40 260,100 Q275,140 240,130 Q250,110 250,80" fill="#5D4037" style={{ filter: 'url(#paperRough)' }} />
+            {/* Snout - tan paper */}
+            <ellipse cx="140" cy="160" rx="50" ry="40" fill="#D7CCC8" style={{ filter: 'url(#paperRough)' }} />
+            {/* Nose - black oval */}
+            <ellipse cx="140" cy="145" rx="18" ry="14" fill="#212121" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="135" cy="142" rx="5" ry="3" fill="#424242" />
+            {/* Eyes - big paper circles */}
+            <circle cx="95" cy="110" r="25" fill="white" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="185" cy="110" r="25" fill="white" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="100" cy="110" r="15" fill="#3E2723" />
+            <circle cx="190" cy="110" r="15" fill="#3E2723" />
+            <circle cx="104" cy="106" r="5" fill="white" />
+            <circle cx="194" cy="106" r="5" fill="white" />
+            {/* Tongue - pink paper */}
+            <ellipse cx="140" cy="210" rx="20" ry="35" fill="#F48FB1" style={{ filter: 'url(#paperRough)' }} className="animate-tongue-wag" />
+            {/* Happy eyebrows */}
+            <path d="M65,85 Q95,75 115,90" stroke="#5D4037" strokeWidth="6" fill="none" strokeLinecap="round" />
+            <path d="M165,90 Q185,75 215,85" stroke="#5D4037" strokeWidth="6" fill="none" strokeLinecap="round" />
+          </svg>
+        </div>
+      )}
+
+      {/* BIRD - Colorful paper bird swooping */}
+      {transition === 'bird-swoop' && (
+        <div className="absolute -top-20 left-1/4 animate-bird-swoop" style={{ filter: 'url(#cutoutShadow)' }}>
+          <svg width="300" height="200" viewBox="0 0 300 200">
+            {/* Body */}
+            <ellipse cx="150" cy="100" rx="70" ry="45" fill="#1976D2" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="155" cy="95" rx="55" ry="35" fill="#2196F3" style={{ filter: 'url(#paperRough)' }} />
+            {/* Wing - layered paper feathers */}
+            <path d="M120,70 Q80,30 60,60 Q40,40 50,80 Q30,70 60,100 Q50,90 90,100" fill="#0D47A1" style={{ filter: 'url(#paperRough)' }} className="animate-wing-flap" />
+            <path d="M130,75 Q100,45 85,70 Q70,55 80,90" fill="#1565C0" style={{ filter: 'url(#paperRough)' }} className="animate-wing-flap" />
+            {/* Head */}
+            <circle cx="220" cy="85" r="35" fill="#1976D2" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="225" cy="82" r="28" fill="#2196F3" style={{ filter: 'url(#paperRough)' }} />
+            {/* Eye */}
+            <circle cx="235" cy="80" r="12" fill="white" />
+            <circle cx="238" cy="80" r="7" fill="#1a1a1a" />
+            <circle cx="240" cy="78" r="2" fill="white" />
+            {/* Beak - orange/yellow paper triangle */}
+            <path d="M255,85 L290,95 L255,105 Z" fill="#FF9800" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M255,90 L280,95 L255,100 Z" fill="#FFC107" />
+            {/* Tail feathers */}
+            <path d="M80,100 Q50,90 30,110 Q60,105 80,110" fill="#0D47A1" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M85,105 Q55,100 40,125 Q65,115 85,115" fill="#1565C0" style={{ filter: 'url(#paperRough)' }} />
+            <path d="M90,115 Q65,115 55,140 Q75,125 95,120" fill="#1976D2" style={{ filter: 'url(#paperRough)' }} />
+          </svg>
+        </div>
+      )}
+
+      {/* BEAR - Brown paper bear peeking */}
+      {transition === 'bear-peek' && (
+        <div className="absolute -bottom-20 right-10 animate-bear-peek" style={{ filter: 'url(#cutoutShadow)' }}>
+          <svg width="320" height="300" viewBox="0 0 320 300">
+            {/* Body peeking up */}
+            <ellipse cx="160" cy="280" rx="140" ry="80" fill="#4E342E" style={{ filter: 'url(#paperRough)' }} />
+            {/* Head */}
+            <ellipse cx="160" cy="150" rx="100" ry="85" fill="#5D4037" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="160" cy="155" rx="85" ry="70" fill="#6D4C41" style={{ filter: 'url(#paperRough)' }} />
+            {/* Ears - round paper circles */}
+            <circle cx="70" cy="80" r="35" fill="#5D4037" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="70" cy="80" r="22" fill="#8D6E63" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="250" cy="80" r="35" fill="#5D4037" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="250" cy="80" r="22" fill="#8D6E63" style={{ filter: 'url(#paperRough)' }} />
+            {/* Snout */}
+            <ellipse cx="160" cy="180" rx="45" ry="35" fill="#D7CCC8" style={{ filter: 'url(#paperRough)' }} />
+            {/* Nose */}
+            <ellipse cx="160" cy="165" rx="16" ry="12" fill="#212121" style={{ filter: 'url(#paperRough)' }} />
+            {/* Eyes */}
+            <circle cx="115" cy="130" r="20" fill="white" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="205" cy="130" r="20" fill="white" style={{ filter: 'url(#paperRough)' }} />
+            <circle cx="118" cy="130" r="12" fill="#1a1a1a" />
+            <circle cx="208" cy="130" r="12" fill="#1a1a1a" />
+            <circle cx="121" cy="127" r="4" fill="white" />
+            <circle cx="211" cy="127" r="4" fill="white" />
+            {/* Paws on "edge" */}
+            <ellipse cx="80" cy="250" rx="35" ry="25" fill="#5D4037" style={{ filter: 'url(#paperRough)' }} />
+            <ellipse cx="240" cy="250" rx="35" ry="25" fill="#5D4037" style={{ filter: 'url(#paperRough)' }} />
+          </svg>
+        </div>
+      )}
+
+      {/* FROG - Green paper frog with long tongue */}
+      {transition === 'frog-tongue' && (
         <>
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 animate-dog-head-shake drop-shadow-2xl">
-            <svg width="250" height="200" viewBox="0 0 250 200">
+          {/* Tongue - pink paper strip */}
+          <div className="absolute bottom-40 left-1/2 -translate-x-1/2 w-6 animate-tongue-extend origin-bottom">
+            <div className="w-full rounded-t-full" style={{ height: '45vh', background: '#F48FB1', filter: 'url(#paperRough)' }}>
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-5 rounded-full" style={{ background: '#EC407A' }} />
+            </div>
+          </div>
+          {/* Frog */}
+          <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 animate-frog-appear" style={{ filter: 'url(#cutoutShadow)' }}>
+            <svg width="300" height="180" viewBox="0 0 300 180">
+              {/* Body */}
+              <ellipse cx="150" cy="140" rx="120" ry="60" fill="#388E3C" style={{ filter: 'url(#paperRough)' }} />
+              <ellipse cx="150" cy="135" rx="100" ry="50" fill="#43A047" style={{ filter: 'url(#paperRough)' }} />
               {/* Head */}
-              <ellipse cx="125" cy="100" rx="100" ry="80" fill="#D2691E" />
-              {/* Snout */}
-              <ellipse cx="125" cy="140" rx="50" ry="40" fill="#DEB887" />
-              {/* Nose */}
-              <ellipse cx="125" cy="120" rx="20" ry="15" fill="#2a2a2a" />
-              {/* Tongue hanging out in excitement */}
-              <ellipse cx="125" cy="175" rx="20" ry="30" fill="#FF69B4" className="animate-tongue-wag" />
-              {/* Eyes - excited! */}
-              <circle cx="80" cy="80" r="20" fill="white" />
-              <circle cx="170" cy="80" r="20" fill="white" />
-              <circle cx="85" cy="80" r="12" fill="#2a2a2a" />
-              <circle cx="175" cy="80" r="12" fill="#2a2a2a" />
-              {/* Sparkle in eyes */}
-              <circle cx="88" cy="76" r="4" fill="white" />
-              <circle cx="178" cy="76" r="4" fill="white" />
-              {/* Excited eyebrows */}
-              <path d="M50,55 Q80,45 100,60" stroke="#8B4513" strokeWidth="6" fill="none" />
-              <path d="M150,60 Q170,45 200,55" stroke="#8B4513" strokeWidth="6" fill="none" />
-              {/* Ears flopping */}
-              <ellipse cx="30" cy="60" rx="30" ry="50" fill="#A0522D" className="animate-ear-flop" />
-              <ellipse cx="220" cy="60" rx="30" ry="50" fill="#A0522D" className="animate-ear-flop" style={{ animationDelay: '0.1s' }} />
-            </svg>
-          </div>
-          {/* Drool/slobber drops */}
-          {confetti.slice(0, 6).map((c) => (
-            <div
-              key={c.id}
-              className="absolute animate-drip-fall"
-              style={{
-                left: `calc(50% + ${(c.id - 3) * 15}px)`,
-                top: '55%',
-                animationDelay: `${0.5 + c.delay}s`,
-              }}
-            >
-              <div className="w-3 h-4 bg-blue-200/70 rounded-full" />
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* TORNADO SPIN - Small tornado that spins through */}
-      {transition === 'tornado-spin' && (
-        <>
-          <div className="absolute animate-tornado-sweep drop-shadow-xl">
-            <svg width="200" height="350" viewBox="0 0 200 350">
-              {/* Tornado funnel - semi transparent */}
-              <defs>
-                <linearGradient id="tornadoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(74, 85, 104, 0.5)" />
-                  <stop offset="50%" stopColor="rgba(113, 128, 150, 0.6)" />
-                  <stop offset="100%" stopColor="rgba(74, 85, 104, 0.5)" />
-                </linearGradient>
-              </defs>
-              <path d="M100,0 Q30,70 50,140 Q10,210 60,280 Q30,320 100,350 Q170,320 140,280 Q190,210 150,140 Q170,70 100,0"
-                    fill="url(#tornadoGradient)" className="animate-tornado-spin" />
-              {/* Debris swirling */}
-              <text x="60" y="100" className="animate-debris-spin text-2xl">📚</text>
-              <text x="120" y="180" className="animate-debris-spin text-xl" style={{ animationDelay: '0.2s' }}>✏️</text>
-              <text x="80" y="260" className="animate-debris-spin text-2xl" style={{ animationDelay: '0.4s' }}>📖</text>
+              <ellipse cx="150" cy="100" rx="90" ry="55" fill="#4CAF50" style={{ filter: 'url(#paperRough)' }} />
+              {/* Eyes - big bulging paper circles */}
+              <circle cx="90" cy="50" r="40" fill="#4CAF50" style={{ filter: 'url(#paperRough)' }} />
+              <circle cx="210" cy="50" r="40" fill="#4CAF50" style={{ filter: 'url(#paperRough)' }} />
+              <circle cx="90" cy="50" r="28" fill="white" style={{ filter: 'url(#paperRough)' }} />
+              <circle cx="210" cy="50" r="28" fill="white" style={{ filter: 'url(#paperRough)' }} />
+              <circle cx="95" cy="50" r="16" fill="#1a1a1a" />
+              <circle cx="215" cy="50" r="16" fill="#1a1a1a" />
+              <circle cx="99" cy="46" r="5" fill="white" />
+              <circle cx="219" cy="46" r="5" fill="white" />
+              {/* Mouth - wide open */}
+              <ellipse cx="150" cy="120" rx="50" ry="25" fill="#C62828" style={{ filter: 'url(#paperRough)' }} />
+              {/* Spots */}
+              <circle cx="100" cy="130" r="12" fill="#2E7D32" style={{ filter: 'url(#paperRough)' }} />
+              <circle cx="200" cy="125" r="10" fill="#2E7D32" style={{ filter: 'url(#paperRough)' }} />
+              <circle cx="150" cy="155" r="8" fill="#2E7D32" style={{ filter: 'url(#paperRough)' }} />
             </svg>
           </div>
         </>
       )}
 
-      {/* ROCKET CRASH - Rocket zooms through the scene */}
-      {transition === 'rocket-crash' && (
-        <>
-          {/* Smoke trail */}
-          <div className="absolute top-0 left-1/2 w-20 h-full animate-smoke-trail">
-            <div className="w-full h-full bg-gradient-to-b from-gray-300/50 via-gray-200/30 to-transparent blur-md" />
-          </div>
-          <div className="absolute -top-40 left-1/2 -translate-x-1/2 animate-rocket-crash-in drop-shadow-2xl">
-            <svg width="120" height="200" viewBox="0 0 120 200">
-              {/* Rocket body */}
-              <ellipse cx="60" cy="100" rx="30" ry="70" fill="#E74C3C" />
-              <ellipse cx="60" cy="100" rx="22" ry="60" fill="#C0392B" />
-              {/* Nose */}
-              <polygon points="60,20 40,70 80,70" fill="#3498DB" />
-              {/* Window */}
-              <circle cx="60" cy="85" r="15" fill="#85C1E9" />
-              <circle cx="55" cy="80" r="5" fill="white" opacity="0.5" />
-              {/* Fins */}
-              <polygon points="30,140 10,180 40,160" fill="#2ECC71" />
-              <polygon points="90,140 110,180 80,160" fill="#2ECC71" />
-              {/* Flames */}
-              <g className="animate-flames-intense">
-                <ellipse cx="60" cy="175" rx="20" ry="30" fill="#F39C12" />
-                <ellipse cx="60" cy="185" rx="15" ry="25" fill="#E74C3C" />
-                <ellipse cx="60" cy="190" rx="8" ry="15" fill="#F1C40F" />
-              </g>
-            </svg>
-          </div>
-          {/* Sparkle trail */}
-          {confetti.slice(0, 10).map((c) => (
-            <div
-              key={c.id}
-              className="absolute animate-sparkle-trail"
-              style={{
-                left: `calc(50% + ${(Math.random() - 0.5) * 60}px)`,
-                top: `${30 + c.id * 5}%`,
-                animationDelay: `${0.3 + c.delay}s`,
-              }}
-            >
-              <span className="text-xl">✨</span>
-            </div>
-          ))}
-        </>
+      {/* BUTTERFLY - Colorful paper butterfly */}
+      {transition === 'butterfly-flutter' && (
+        <div className="absolute animate-butterfly-flutter" style={{ filter: 'url(#cutoutShadow)' }}>
+          <svg width="250" height="200" viewBox="0 0 250 200">
+            {/* Wings - layered colorful paper */}
+            {/* Left wings */}
+            <ellipse cx="70" cy="70" rx="55" ry="45" fill="#E91E63" style={{ filter: 'url(#paperRough)' }} className="animate-wing-left" />
+            <ellipse cx="75" cy="75" rx="40" ry="32" fill="#F48FB1" style={{ filter: 'url(#paperRough)' }} className="animate-wing-left" />
+            <ellipse cx="60" cy="130" rx="45" ry="35" fill="#9C27B0" style={{ filter: 'url(#paperRough)' }} className="animate-wing-left" />
+            <ellipse cx="65" cy="128" rx="32" ry="25" fill="#CE93D8" style={{ filter: 'url(#paperRough)' }} className="animate-wing-left" />
+            {/* Right wings */}
+            <ellipse cx="180" cy="70" rx="55" ry="45" fill="#E91E63" style={{ filter: 'url(#paperRough)' }} className="animate-wing-right" />
+            <ellipse cx="175" cy="75" rx="40" ry="32" fill="#F48FB1" style={{ filter: 'url(#paperRough)' }} className="animate-wing-right" />
+            <ellipse cx="190" cy="130" rx="45" ry="35" fill="#9C27B0" style={{ filter: 'url(#paperRough)' }} className="animate-wing-right" />
+            <ellipse cx="185" cy="128" rx="32" ry="25" fill="#CE93D8" style={{ filter: 'url(#paperRough)' }} className="animate-wing-right" />
+            {/* Body */}
+            <ellipse cx="125" cy="100" rx="12" ry="55" fill="#4A148C" style={{ filter: 'url(#paperRough)' }} />
+            {/* Head */}
+            <circle cx="125" cy="45" r="15" fill="#4A148C" style={{ filter: 'url(#paperRough)' }} />
+            {/* Antennae */}
+            <path d="M115,35 Q100,10 95,20" stroke="#4A148C" strokeWidth="3" fill="none" />
+            <circle cx="95" cy="20" r="5" fill="#E91E63" />
+            <path d="M135,35 Q150,10 155,20" stroke="#4A148C" strokeWidth="3" fill="none" />
+            <circle cx="155" cy="20" r="5" fill="#E91E63" />
+            {/* Eyes */}
+            <circle cx="120" cy="42" r="5" fill="white" />
+            <circle cx="130" cy="42" r="5" fill="white" />
+            <circle cx="121" cy="42" r="3" fill="#1a1a1a" />
+            <circle cx="131" cy="42" r="3" fill="#1a1a1a" />
+            {/* Wing patterns - dots */}
+            <circle cx="55" cy="65" r="8" fill="#FFC107" />
+            <circle cx="85" cy="55" r="6" fill="#FFC107" />
+            <circle cx="195" cy="65" r="8" fill="#FFC107" />
+            <circle cx="165" cy="55" r="6" fill="#FFC107" />
+          </svg>
+        </div>
       )}
 
-      {/* GIANT TONGUE - Frog peeks up and tongue zaps out */}
-      {transition === 'giant-tongue' && (
-        <>
-          {/* Tongue zapping across screen */}
-          <div className="absolute bottom-32 left-1/2 -translate-x-1/2 w-8 animate-tongue-extend origin-bottom">
-            <div className="w-full bg-pink-400 rounded-t-full" style={{ height: '50vh' }}>
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-6 bg-pink-400 rounded-full" />
-            </div>
-          </div>
-          {/* Frog peeking from bottom */}
-          <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 animate-frog-appear drop-shadow-2xl">
-            <svg width="250" height="150" viewBox="0 0 250 150">
-              {/* Head */}
-              <ellipse cx="125" cy="100" rx="100" ry="60" fill="#2ECC71" />
-              {/* Eyes - big and bulging */}
-              <circle cx="70" cy="30" r="40" fill="#2ECC71" />
-              <circle cx="180" cy="30" r="40" fill="#2ECC71" />
-              <circle cx="70" cy="30" r="30" fill="white" />
-              <circle cx="180" cy="30" r="30" fill="white" />
-              <circle cx="75" cy="30" r="18" fill="#2a2a2a" />
-              <circle cx="185" cy="30" r="18" fill="#2a2a2a" />
-              <circle cx="80" cy="25" r="6" fill="white" />
-              <circle cx="190" cy="25" r="6" fill="white" />
-              {/* Mouth open */}
-              <ellipse cx="125" cy="110" rx="50" ry="25" fill="#C0392B" />
-            </svg>
-          </div>
-        </>
-      )}
+      {/* Flying paper scraps */}
+      {paperScraps.map((scrap) => (
+        <div
+          key={scrap.id}
+          className="absolute animate-paper-fly"
+          style={{
+            left: `${scrap.x}%`,
+            top: '50%',
+            '--end-x': `${(Math.random() - 0.5) * 300}px`,
+            '--end-y': `${(Math.random() - 0.5) * 300}px`,
+            '--rotation': `${scrap.rotation + Math.random() * 360}deg`,
+            animationDelay: `${0.3 + scrap.delay}s`,
+          } as React.CSSProperties}
+        >
+          <div
+            className="rounded-sm"
+            style={{
+              width: scrap.size,
+              height: scrap.size * 0.8,
+              backgroundColor: scrap.color,
+              transform: `rotate(${scrap.rotation}deg)`,
+              filter: 'url(#paperRough)',
+            }}
+          />
+        </div>
+      ))}
 
-      {/* NINJA SLICE - Katana slices through quickly */}
-      {transition === 'ninja-slice' && (
-        <>
-          {/* Slash effect lines */}
-          <div className="absolute inset-0 animate-slash-lines pointer-events-none">
-            <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-              <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.9)" strokeWidth="0.5" className="animate-slash-glow" />
-            </svg>
-          </div>
-          <div className="absolute -left-40 top-1/2 -translate-y-1/2 animate-ninja-slice drop-shadow-2xl">
-            <svg width="400" height="60" viewBox="0 0 400 60">
-              {/* Blade with gleam */}
-              <polygon points="0,30 350,25 380,30 350,35" fill="#D0D0D0" />
-              <line x1="0" y1="30" x2="350" y2="30" stroke="white" strokeWidth="3" opacity="0.8" />
-              <line x1="50" y1="28" x2="200" y2="28" stroke="white" strokeWidth="1" opacity="0.5" />
-              {/* Handle */}
-              <rect x="380" y="20" width="60" height="20" fill="#2a2a2a" rx="3" />
-              <rect x="390" y="22" width="5" height="16" fill="#FFD700" />
-              <rect x="400" y="22" width="5" height="16" fill="#FFD700" />
-              {/* Motion blur effect */}
-              <rect x="0" y="28" width="350" height="4" fill="rgba(255,255,255,0.3)" className="animate-blade-blur" />
-            </svg>
-          </div>
-          {/* Slash sparks */}
-          {confetti.slice(0, 12).map((c) => (
-            <div
-              key={c.id}
-              className="absolute animate-spark-fly"
-              style={{
-                left: `${10 + c.id * 7}%`,
-                top: '50%',
-                '--end-x': `${(Math.random() - 0.5) * 100}px`,
-                '--end-y': `${(Math.random() - 0.5) * 150}px`,
-                animationDelay: `${0.15 + c.delay * 0.3}s`,
-              } as React.CSSProperties}
-            >
-              <div className="w-2 h-2 bg-yellow-300 rounded-full shadow-lg shadow-yellow-400" />
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* Sound effect text - always visible but with text shadow for readability */}
+      {/* Sound effect - paper cutout style text */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-sound-effect">
-        <p className="text-7xl font-black comic-text">
-          {encouragement}
+        <p className="text-7xl font-black comic-text" style={{ filter: 'url(#cutoutShadow)' }}>
+          {soundEffect}
         </p>
       </div>
 
       <style jsx>{`
         .comic-text {
           font-family: 'Comic Sans MS', cursive;
-          color: white;
-          text-shadow:
-            -3px -3px 0 #333,
-            3px -3px 0 #333,
-            -3px 3px 0 #333,
-            3px 3px 0 #333,
-            0 0 20px rgba(0,0,0,0.5);
+          color: #FDD835;
+          -webkit-text-stroke: 4px #E65100;
+          paint-order: stroke fill;
         }
 
         @keyframes flash-dim {
@@ -435,290 +400,170 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
           100% { opacity: 0; }
         }
         .animate-flash-dim {
-          animation: flash-dim 2.2s ease-out forwards;
+          animation: flash-dim 2.5s ease-out forwards;
         }
 
         @keyframes dino-chomp {
-          0% { transform: translateX(0); }
-          20% { transform: translateX(-250px); }
-          30% { transform: translateX(-250px) rotate(-10deg); }
-          40% { transform: translateX(-250px) rotate(5deg); }
-          50% { transform: translateX(-250px) rotate(-5deg); }
-          70% { transform: translateX(-250px); }
-          100% { transform: translateX(100px); }
+          0% { transform: translateX(100px); }
+          25% { transform: translateX(-200px) rotate(-5deg); }
+          35% { transform: translateX(-200px) rotate(8deg); }
+          45% { transform: translateX(-200px) rotate(-8deg); }
+          55% { transform: translateX(-200px) rotate(5deg); }
+          75% { transform: translateX(-200px); }
+          100% { transform: translateX(150px); }
         }
         .animate-dino-chomp {
-          animation: dino-chomp 2s ease-in-out forwards;
-        }
-
-        @keyframes bite-reveal {
-          0%, 40% { opacity: 0; }
-          50% { opacity: 1; }
-          100% { opacity: 1; }
-        }
-        .animate-bite-reveal {
-          animation: bite-reveal 2s ease-out forwards;
-        }
-
-        @keyframes jaw {
-          0%, 25%, 50%, 75%, 100% { transform: translateY(0); }
-          12%, 37%, 62% { transform: translateY(15px); }
-        }
-        .animate-jaw {
-          animation: jaw 0.6s ease-in-out infinite;
-        }
-
-        @keyframes crumb-fly {
-          0% { transform: translate(0, 0) scale(1); opacity: 1; }
-          100% { transform: translate(var(--end-x), var(--end-y)) scale(0.5); opacity: 0; }
-        }
-        .animate-crumb-fly {
-          animation: crumb-fly 1s ease-out forwards;
+          animation: dino-chomp 2.2s ease-in-out forwards;
         }
 
         @keyframes monster-grab {
           0% { transform: translateX(-50%) translateY(100%); }
-          30% { transform: translateX(-50%) translateY(20%); }
-          50% { transform: translateX(-50%) translateY(0); }
-          100% { transform: translateX(-50%) translateY(150%); }
+          35% { transform: translateX(-50%) translateY(30%); }
+          50% { transform: translateX(-50%) translateY(10%) rotate(-5deg); }
+          65% { transform: translateX(-50%) translateY(10%) rotate(5deg); }
+          100% { transform: translateX(-50%) translateY(120%); }
         }
         .animate-monster-grab {
-          animation: monster-grab 2s ease-in-out forwards;
-        }
-
-        @keyframes finger-curl {
-          0%, 30% { transform: rotate(0); }
-          50% { transform: rotate(30deg); }
-          100% { transform: rotate(30deg); }
-        }
-        .animate-finger-curl {
-          animation: finger-curl 1.5s ease-in-out forwards;
-        }
-
-        @keyframes scratch-line {
-          0% { stroke-dashoffset: 200; opacity: 0; }
-          30% { opacity: 1; }
-          100% { stroke-dashoffset: 0; opacity: 0.3; }
-        }
-        .animate-scratch-line {
-          stroke-dasharray: 200;
-          animation: scratch-line 0.8s ease-out forwards;
-        }
-
-        @keyframes scratch-marks {
-          0% { opacity: 0; }
-          30% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        .animate-scratch-marks {
-          animation: scratch-marks 2s ease-out forwards;
+          animation: monster-grab 2.2s ease-in-out forwards;
         }
 
         @keyframes cat-swipe {
-          0% { transform: translateX(0); }
-          30% { transform: translateX(calc(100vw + 100px)); }
-          100% { transform: translateX(calc(100vw + 200px)); }
+          0% { transform: translateX(0) rotate(0); }
+          40% { transform: translateX(calc(100vw + 100px)) rotate(10deg); }
+          100% { transform: translateX(calc(100vw + 200px)) rotate(15deg); }
         }
         .animate-cat-swipe {
-          animation: cat-swipe 1s ease-out forwards;
-        }
-
-        @keyframes fly-off-screen {
-          0% { transform: translateX(0) rotate(0); opacity: 1; }
-          100% { transform: translateX(300px) translateY(-150px) rotate(540deg); opacity: 0; }
-        }
-        .animate-fly-off-screen {
-          animation: fly-off-screen 1s ease-out forwards;
+          animation: cat-swipe 1.2s ease-out forwards;
         }
 
         @keyframes dog-head-shake {
-          0%, 100% { transform: translateX(-50%) rotate(0); }
-          10% { transform: translateX(-50%) rotate(20deg); }
-          20% { transform: translateX(-50%) rotate(-20deg); }
+          0% { transform: translateX(-50%) scale(0.8) rotate(-10deg); opacity: 0; }
+          20% { transform: translateX(-50%) scale(1) rotate(0); opacity: 1; }
           30% { transform: translateX(-50%) rotate(15deg); }
           40% { transform: translateX(-50%) rotate(-15deg); }
-          50% { transform: translateX(-50%) rotate(10deg); }
-          60% { transform: translateX(-50%) rotate(-10deg); }
-          70% { transform: translateX(-50%) rotate(5deg); }
+          50% { transform: translateX(-50%) rotate(12deg); }
+          60% { transform: translateX(-50%) rotate(-12deg); }
+          70% { transform: translateX(-50%) rotate(8deg); }
           80% { transform: translateX(-50%) rotate(-5deg); }
+          90% { transform: translateX(-50%) scale(1) rotate(0); }
+          100% { transform: translateX(-50%) scale(0.8) rotate(10deg); opacity: 0; }
         }
         .animate-dog-head-shake {
-          animation: dog-head-shake 1.5s ease-in-out forwards;
-        }
-
-        @keyframes ear-flop {
-          0%, 100% { transform: rotate(0); }
-          50% { transform: rotate(30deg); }
-        }
-        .animate-ear-flop {
-          animation: ear-flop 0.15s ease-in-out infinite;
-          transform-origin: bottom center;
+          animation: dog-head-shake 2s ease-in-out forwards;
         }
 
         @keyframes tongue-wag {
-          0%, 100% { transform: translateX(0); }
-          50% { transform: translateX(10px); }
+          0%, 100% { transform: translateX(-3px); }
+          50% { transform: translateX(3px); }
         }
         .animate-tongue-wag {
-          animation: tongue-wag 0.1s ease-in-out infinite;
+          animation: tongue-wag 0.15s ease-in-out infinite;
         }
 
-        @keyframes drip-fall {
-          0% { transform: translateY(0) scale(1); opacity: 1; }
-          100% { transform: translateY(200px) scale(0.5); opacity: 0; }
+        @keyframes bird-swoop {
+          0% { transform: translate(0, 0) rotate(-20deg); }
+          30% { transform: translate(100px, 150px) rotate(10deg); }
+          60% { transform: translate(250px, 80px) rotate(-5deg); }
+          100% { transform: translate(calc(100vw + 100px), 200px) rotate(15deg); }
         }
-        .animate-drip-fall {
-          animation: drip-fall 1s ease-in forwards;
-        }
-
-        @keyframes tornado-sweep {
-          0% { left: -200px; top: 20%; }
-          50% { left: 50%; top: 50%; transform: translateX(-50%); }
-          100% { left: calc(100% + 200px); top: 30%; }
-        }
-        .animate-tornado-sweep {
-          animation: tornado-sweep 2s ease-in-out forwards;
+        .animate-bird-swoop {
+          animation: bird-swoop 2s ease-in-out forwards;
         }
 
-        @keyframes tornado-spin {
-          from { transform: rotate(0) scaleX(1); }
-          50% { transform: rotate(180deg) scaleX(0.9); }
-          to { transform: rotate(360deg) scaleX(1); }
+        @keyframes wing-flap {
+          0%, 100% { transform: rotate(0) scaleY(1); }
+          50% { transform: rotate(-20deg) scaleY(0.8); }
         }
-        .animate-tornado-spin {
-          animation: tornado-spin 0.3s linear infinite;
-          transform-origin: center center;
-        }
-
-        @keyframes debris-spin {
-          from { transform: rotate(0) translateX(20px); }
-          to { transform: rotate(360deg) translateX(20px); }
-        }
-        .animate-debris-spin {
-          animation: debris-spin 0.4s linear infinite;
-          transform-origin: -20px center;
+        .animate-wing-flap {
+          animation: wing-flap 0.2s ease-in-out infinite;
+          transform-origin: right center;
         }
 
-        @keyframes rocket-crash-in {
-          0% { transform: translateX(-50%) translateY(0) rotate(180deg); }
-          60% { transform: translateX(-50%) translateY(calc(100vh + 100px)) rotate(180deg); }
-          100% { transform: translateX(-50%) translateY(calc(100vh + 200px)) rotate(180deg); }
+        @keyframes bear-peek {
+          0% { transform: translateY(100%); }
+          30% { transform: translateY(20%); }
+          50% { transform: translateY(0) rotate(-3deg); }
+          70% { transform: translateY(0) rotate(3deg); }
+          85% { transform: translateY(0); }
+          100% { transform: translateY(110%); }
         }
-        .animate-rocket-crash-in {
-          animation: rocket-crash-in 1.2s ease-in forwards;
-        }
-
-        @keyframes smoke-trail {
-          0% { opacity: 0; transform: translateX(-50%) scaleY(0); }
-          20% { opacity: 0.5; transform: translateX(-50%) scaleY(1); }
-          100% { opacity: 0; transform: translateX(-50%) scaleY(1); }
-        }
-        .animate-smoke-trail {
-          animation: smoke-trail 1.5s ease-out forwards;
-          transform-origin: top center;
-        }
-
-        @keyframes sparkle-trail {
-          0% { transform: scale(1); opacity: 1; }
-          100% { transform: scale(0); opacity: 0; }
-        }
-        .animate-sparkle-trail {
-          animation: sparkle-trail 0.8s ease-out forwards;
-        }
-
-        @keyframes flames-intense {
-          0%, 100% { transform: scaleY(1) scaleX(1); }
-          25% { transform: scaleY(1.3) scaleX(0.9); }
-          50% { transform: scaleY(0.9) scaleX(1.1); }
-          75% { transform: scaleY(1.2) scaleX(0.95); }
-        }
-        .animate-flames-intense {
-          animation: flames-intense 0.1s ease-in-out infinite;
-          transform-origin: center top;
+        .animate-bear-peek {
+          animation: bear-peek 2.5s ease-in-out forwards;
         }
 
         @keyframes frog-appear {
           0% { transform: translateX(-50%) translateY(100%); }
-          30% { transform: translateX(-50%) translateY(0); }
-          80% { transform: translateX(-50%) translateY(0); }
+          25% { transform: translateX(-50%) translateY(0); }
+          75% { transform: translateX(-50%) translateY(0); }
           100% { transform: translateX(-50%) translateY(100%); }
         }
         .animate-frog-appear {
-          animation: frog-appear 2s ease-out forwards;
+          animation: frog-appear 2.2s ease-out forwards;
         }
 
         @keyframes tongue-extend {
           0% { transform: scaleY(0); }
-          20% { transform: scaleY(1); }
-          30% { transform: scaleY(1.1); }
-          40% { transform: scaleY(0.95); }
-          60% { transform: scaleY(1); }
-          80% { transform: scaleY(1); }
+          15% { transform: scaleY(1); }
+          25% { transform: scaleY(1.15); }
+          35% { transform: scaleY(0.95); }
+          50% { transform: scaleY(1); }
+          75% { transform: scaleY(1); }
           100% { transform: scaleY(0); }
         }
         .animate-tongue-extend {
-          animation: tongue-extend 2s ease-in-out forwards;
+          animation: tongue-extend 2.2s ease-in-out forwards;
         }
 
-        @keyframes ninja-slice {
-          0% { transform: translateY(-50%) translateX(0); }
-          25% { transform: translateY(-50%) translateX(calc(100vw + 200px)); }
-          100% { transform: translateY(-50%) translateX(calc(100vw + 400px)); }
+        @keyframes butterfly-flutter {
+          0% { left: -100px; top: 60%; transform: rotate(-10deg); }
+          25% { left: 30%; top: 30%; transform: rotate(5deg); }
+          50% { left: 50%; top: 50%; transform: rotate(-5deg); }
+          75% { left: 70%; top: 25%; transform: rotate(10deg); }
+          100% { left: calc(100% + 100px); top: 40%; transform: rotate(-5deg); }
         }
-        .animate-ninja-slice {
-          animation: ninja-slice 0.5s ease-out forwards;
-        }
-
-        @keyframes slash-glow {
-          0% { stroke-width: 0; opacity: 0; }
-          30% { stroke-width: 3; opacity: 1; }
-          100% { stroke-width: 0; opacity: 0; }
-        }
-        .animate-slash-glow {
-          animation: slash-glow 0.6s ease-out forwards;
-          animation-delay: 0.2s;
+        .animate-butterfly-flutter {
+          animation: butterfly-flutter 2.5s ease-in-out forwards;
         }
 
-        @keyframes slash-lines {
-          0% { opacity: 0; }
-          25% { opacity: 1; }
-          50% { opacity: 1; }
-          100% { opacity: 0; }
+        @keyframes wing-left {
+          0%, 100% { transform: scaleX(1) rotate(0); }
+          50% { transform: scaleX(0.6) rotate(10deg); }
         }
-        .animate-slash-lines {
-          animation: slash-lines 0.8s ease-out forwards;
-        }
-
-        @keyframes blade-blur {
-          0% { opacity: 0; transform: translateX(-100%); }
-          50% { opacity: 0.5; }
-          100% { opacity: 0; transform: translateX(100%); }
-        }
-        .animate-blade-blur {
-          animation: blade-blur 0.3s ease-out forwards;
+        .animate-wing-left {
+          animation: wing-left 0.15s ease-in-out infinite;
+          transform-origin: right center;
         }
 
-        @keyframes spark-fly {
-          0% { transform: translate(0, 0) scale(1); opacity: 1; }
+        @keyframes wing-right {
+          0%, 100% { transform: scaleX(1) rotate(0); }
+          50% { transform: scaleX(0.6) rotate(-10deg); }
+        }
+        .animate-wing-right {
+          animation: wing-right 0.15s ease-in-out infinite;
+          transform-origin: left center;
+        }
+
+        @keyframes paper-fly {
+          0% { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
           100% {
-            transform: translate(var(--end-x), var(--end-y)) scale(0);
+            transform: translate(var(--end-x), var(--end-y)) rotate(var(--rotation)) scale(0.3);
             opacity: 0;
           }
         }
-        .animate-spark-fly {
-          animation: spark-fly 0.6s ease-out forwards;
+        .animate-paper-fly {
+          animation: paper-fly 1.5s ease-out forwards;
         }
 
         @keyframes sound-effect {
-          0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
-          20% { transform: translate(-50%, -50%) scale(1.3) rotate(5deg); opacity: 1; }
-          40% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+          0% { transform: translate(-50%, -50%) scale(0) rotate(-15deg); opacity: 0; }
+          25% { transform: translate(-50%, -50%) scale(1.2) rotate(5deg); opacity: 1; }
+          40% { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; }
           70% { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(0) rotate(10deg); opacity: 0; }
+          100% { transform: translate(-50%, -50%) scale(0) rotate(15deg); opacity: 0; }
         }
         .animate-sound-effect {
-          animation: sound-effect 1.5s ease-out forwards;
-          animation-delay: 0.2s;
+          animation: sound-effect 1.8s ease-out forwards;
+          animation-delay: 0.3s;
         }
       `}</style>
     </div>
