@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
 import { recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
@@ -26,6 +26,14 @@ interface WordState {
   isStruggling: boolean;
 }
 
+// A detected line of text with its Y position and full width
+interface TextLine {
+  y: number;       // bottom edge of the line (where underline goes)
+  left: number;    // leftmost word edge
+  right: number;   // rightmost word edge
+  wordIndices: number[];
+}
+
 const STRUGGLE_THRESHOLD = 3;
 
 export default function StoryReader({ story, gradeLevel, onBack, onComplete }: StoryReaderProps) {
@@ -36,10 +44,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [pageComplete, setPageComplete] = useState(false);
   const [showPageTransition, setShowPageTransition] = useState(false);
   const [progress, setProgress] = useState<GameProgress | null>(null);
-  const [swipePos, setSwipePos] = useState<{ x: number; y: number } | null>(null);
+  const [textLines, setTextLines] = useState<TextLine[]>([]);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const textContainerRef = useRef<HTMLDivElement>(null);
+  const textBoxRef = useRef<HTMLDivElement>(null);
 
   const pageText = story.pages[currentPage];
   const totalPages = story.pages.length;
@@ -65,20 +73,67 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     })));
     setActiveWordIndex(null);
     setPageComplete(false);
+    setTextLines([]);
     wordRefs.current = [];
   }, [pageText, currentPage]);
 
-  // Check page completion - immediately trigger transition (no star modal)
+  // Detect lines of text by measuring word positions after render
+  useLayoutEffect(() => {
+    if (wordStates.length === 0 || wordRefs.current.length === 0) return;
+
+    // Small delay to ensure layout is settled
+    const timer = setTimeout(() => {
+      if (!textBoxRef.current) return;
+      const boxRect = textBoxRef.current.getBoundingClientRect();
+      const lines: TextLine[] = [];
+      const lineMap = new Map<number, { left: number; right: number; indices: number[] }>();
+
+      wordRefs.current.forEach((ref, index) => {
+        if (!ref) return;
+        const rect = ref.getBoundingClientRect();
+        // Round Y to group words on the same visual line (within 5px)
+        const bottomY = Math.round(rect.bottom);
+        let matchedKey: number | null = null;
+        for (const key of lineMap.keys()) {
+          if (Math.abs(key - bottomY) < 10) {
+            matchedKey = key;
+            break;
+          }
+        }
+        const key = matchedKey ?? bottomY;
+        const existing = lineMap.get(key);
+        if (existing) {
+          existing.left = Math.min(existing.left, rect.left);
+          existing.right = Math.max(existing.right, rect.right);
+          existing.indices.push(index);
+        } else {
+          lineMap.set(key, { left: rect.left, right: rect.right, indices: [index] });
+        }
+      });
+
+      lineMap.forEach((val, key) => {
+        lines.push({
+          y: key - boxRect.top, // relative to text box
+          left: val.left - boxRect.left,
+          right: val.right - boxRect.left,
+          wordIndices: val.indices,
+        });
+      });
+
+      lines.sort((a, b) => a.y - b.y);
+      setTextLines(lines);
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [wordStates]);
+
+  // Check page completion
   useEffect(() => {
     if (wordStates.length > 0 && wordStates.every(w => w.isCompleted) && !pageComplete) {
       setPageComplete(true);
-
-      // Record progress
       if (progress) {
         setProgress(recordPageComplete(progress, 1));
       }
-
-      // Small delay then show page transition
       setTimeout(() => {
         if (isLastPage) {
           onComplete();
@@ -89,12 +144,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   }, [wordStates, pageComplete, progress, isLastPage, onComplete]);
 
-  // Core swipe logic shared by pointer and touch events
-  const handleSwipeAt = useCallback((x: number, y: number) => {
+  // Pointer handler - works for both mouse and touch with touch-action: none
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
 
-    // Track finger position for swipe line
-    setSwipePos({ x, y: y + 50 }); // +50 to undo the -50 offset, get real screen Y
+    const x = e.clientX;
+    const y = e.clientY - 50;
 
     let foundIndex: number | null = null;
 
@@ -108,17 +163,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     });
 
     if (foundIndex !== null && foundIndex !== activeWordIndex) {
-      // Get the next word that should be read
       const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
-
-      // Only allow completing the next word in sequence (left-to-right)
-      // But allow highlighting any word for visual feedback
       setActiveWordIndex(foundIndex);
 
       setWordStates(prev => prev.map((ws, i) => {
         if (i === foundIndex) {
           const newVisitCount = ws.visitCount + 1;
-          // Only mark as completed if it's the next word in sequence OR already completed
           const canComplete = i === nextToRead || ws.isCompleted || nextToRead === -1;
           return {
             ...ws,
@@ -136,16 +186,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates]);
 
-  // Pointer events work for both mouse (desktop) and touch (mobile)
-  // when touch-action: none is set. No need for separate touch handlers.
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    handleSwipeAt(e.clientX, e.clientY - 50);
-  }, [handleSwipeAt]);
-
-  const handleSwipeEnd = useCallback(() => {
-    setSwipePos(null);
-  }, []);
-
   // Word tap for help
   const handleWordTap = (index: number) => {
     const ws = wordStates[index];
@@ -154,57 +194,28 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   };
 
-  // Called when page transition animation completes
   const handlePageTransitionComplete = () => {
     setShowPageTransition(false);
     setCurrentPage(prev => prev + 1);
   };
 
-  // Find the next word to read for highlighting
   const nextWordIndex = wordStates.findIndex(ws => !ws.isCompleted);
 
-  // Render word - all words clearly readable, high contrast for learning
-  const renderWord = (ws: WordState, index: number) => {
-    const isNextWord = index === nextWordIndex;
+  // Figure out which line is "active" (has the next word to read)
+  const activeLineIndex = textLines.findIndex(line =>
+    line.wordIndices.includes(nextWordIndex)
+  );
 
-    return (
-      <span
-        key={index}
-        ref={el => { wordRefs.current[index] = el; }}
-        onClick={() => handleWordTap(index)}
-        className={`
-          inline-block px-2 py-1 mx-0.5 my-1 rounded-lg cursor-pointer select-none
-          transition-all duration-150 ease-out relative
-          text-2xl md:text-3xl lg:text-4xl font-medium
-          ${ws.isActive
-            ? 'bg-blue-500 text-white scale-110 shadow-lg'
-            : ws.isCompleted
-              ? 'bg-green-100 text-gray-900'
-              : isNextWord
-                ? 'text-gray-900 bg-yellow-100 ring-2 ring-yellow-400 shadow-md'
-                : 'text-gray-800 bg-gray-50'}
-        `}
-      >
-        {ws.cleanWord}{ws.punctuation}
-        {ws.isStruggling && !ws.isActive && (
-          <span className="absolute -top-1 -right-1 text-sm">💡</span>
-        )}
-        {isNextWord && !ws.isActive && (
-          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-yellow-500 text-sm animate-bounce">
-            👆
-          </span>
-        )}
-      </span>
-    );
-  };
+  // Check if all words on a line are completed
+  const isLineCompleted = (line: TextLine) =>
+    line.wordIndices.every(i => wordStates[i]?.isCompleted);
 
   return (
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
-      onPointerUp={handleSwipeEnd}
       className="min-h-screen flex flex-col relative overflow-hidden"
-      style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
+      style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as React.CSSProperties}
     >
       {/* Full-screen immersive story scene */}
       <StoryScene storyId={story.id} />
@@ -212,53 +223,132 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       {/* Subtle background character animation */}
       <BackgroundCharacter storyId={story.id} />
 
-      {/* Minimal floating controls - blends with story */}
-      <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+      {/* Minimal floating controls */}
+      <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
         <button
           onClick={onBack}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/70 text-gray-600 hover:bg-white hover:text-gray-800 transition-all shadow-sm"
+          style={{ width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.7)', color: '#4B5563', border: 'none', cursor: 'pointer' }}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-
-        {/* Page indicator - small pill */}
-        <div className="flex items-center gap-1.5 bg-white/70 px-3 py-1.5 rounded-full shadow-sm">
-          <span className="text-lg">{story.coverEmoji}</span>
-          <span className="text-sm font-medium text-gray-700">{currentPage + 1}/{totalPages}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.7)', padding: '6px 12px', borderRadius: 9999 }}>
+          <span style={{ fontSize: 18 }}>{story.coverEmoji}</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>{currentPage + 1}/{totalPages}</span>
         </div>
       </div>
 
       {/* Progress dots at bottom */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+      <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, zIndex: 10 }}>
         {story.pages.map((_, i) => (
           <div
             key={i}
-            className={`rounded-full transition-all duration-300 ${
-              i === currentPage
-                ? 'w-6 h-2 bg-blue-500'
-                : i < currentPage
-                  ? 'w-2 h-2 bg-blue-400'
-                  : 'w-2 h-2 bg-white/60'
-            }`}
+            style={{
+              borderRadius: 9999,
+              transition: 'all 0.3s',
+              width: i === currentPage ? 24 : 8,
+              height: 8,
+              background: i === currentPage ? '#3B82F6' : i < currentPage ? '#60A5FA' : 'rgba(255,255,255,0.6)',
+            }}
           />
         ))}
       </div>
 
       {/* Main reading area */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative z-10">
-        <div className="w-full max-w-3xl">
-          {/* Text container */}
-          <div ref={textContainerRef} className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 md:p-10">
-            <p className="text-center leading-relaxed font-medium">
-              {wordStates.map((ws, i) => renderWord(ws, i))}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', position: 'relative', zIndex: 10 }}>
+        <div style={{ width: '100%', maxWidth: 768 }}>
+          {/* Text container with guide lines */}
+          <div
+            ref={textBoxRef}
+            style={{
+              position: 'relative',
+              background: 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(8px)',
+              borderRadius: 16,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+              border: '1px solid rgba(255,255,255,0.5)',
+              padding: '32px 24px',
+            }}
+          >
+            {/* The text */}
+            <p style={{ textAlign: 'center', lineHeight: 2.8, fontWeight: 500, margin: 0, fontSize: 'clamp(1.4rem, 5vw, 2.2rem)' }}>
+              {wordStates.map((ws, i) => {
+                const isNextWord = i === nextWordIndex;
+
+                const wordStyle: React.CSSProperties = {
+                  display: 'inline',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease-out',
+                  position: 'relative',
+                  borderRadius: 4,
+                  padding: '2px 4px',
+                };
+
+                if (ws.isActive) {
+                  wordStyle.background = '#3B82F6';
+                  wordStyle.color = 'white';
+                  wordStyle.borderRadius = 6;
+                  wordStyle.boxShadow = '0 2px 8px rgba(59,130,246,0.4)';
+                } else if (ws.isCompleted) {
+                  wordStyle.color = '#1F2937';
+                } else if (isNextWord) {
+                  wordStyle.color = '#1F2937';
+                  wordStyle.fontWeight = 600;
+                  wordStyle.background = 'rgba(253,224,71,0.3)';
+                } else {
+                  wordStyle.color = '#9CA3AF';
+                }
+
+                return (
+                  <span key={i}>
+                    <span
+                      ref={el => { wordRefs.current[i] = el; }}
+                      onClick={() => handleWordTap(i)}
+                      style={wordStyle}
+                    >
+                      {ws.cleanWord}{ws.punctuation}
+                      {ws.isStruggling && !ws.isActive && (
+                        <span style={{ fontSize: '0.6em', verticalAlign: 'super', marginLeft: 2 }}>💡</span>
+                      )}
+                    </span>
+                    {i < wordStates.length - 1 && ' '}
+                  </span>
+                );
+              })}
             </p>
+
+            {/* Guide lines under each line of text */}
+            {textLines.map((line, lineIdx) => {
+              const completed = isLineCompleted(line);
+              const active = lineIdx === activeLineIndex;
+              let lineColor = '#E5E7EB'; // gray for unread
+              if (completed) lineColor = '#86EFAC'; // green for done
+              else if (active) lineColor = '#3B82F6'; // blue for current
+
+              return (
+                <div
+                  key={lineIdx}
+                  style={{
+                    position: 'absolute',
+                    left: line.left - 4,
+                    width: line.right - line.left + 8,
+                    top: line.y + 4,
+                    height: active ? 4 : 3,
+                    borderRadius: 2,
+                    background: lineColor,
+                    transition: 'all 0.3s ease',
+                    boxShadow: active ? '0 0 8px rgba(59,130,246,0.4)' : 'none',
+                    pointerEvents: 'none',
+                  }}
+                />
+              );
+            })}
           </div>
 
-          {/* Instruction - friendly */}
-          <p className="text-center text-gray-600 text-sm mt-4 bg-white/60 px-4 py-2 rounded-full inline-block">
-            Touch each word from left to right 👆
+          {/* Instruction */}
+          <p style={{ textAlign: 'center', color: '#6B7280', fontSize: 14, marginTop: 16, background: 'rgba(255,255,255,0.6)', padding: '8px 16px', borderRadius: 9999, display: 'inline-block' }}>
+            Slide your finger under each word from left to right
           </p>
         </div>
       </main>
@@ -266,71 +356,48 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       {/* Help modal */}
       {showHelp && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
           onClick={() => setShowHelp(null)}
         >
           <div
-            className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+            style={{ background: 'white', borderRadius: 16, padding: 24, maxWidth: 384, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
             onClick={e => e.stopPropagation()}
           >
-            <div className="text-center mb-4">
-              <p className="text-4xl font-bold text-gray-800">
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <p style={{ fontSize: 32, fontWeight: 700, color: '#1F2937' }}>
                 {getSyllables(showHelp).map((syl, i) => (
                   <span key={i}>
-                    <span className="text-blue-500">{syl}</span>
+                    <span style={{ color: '#3B82F6' }}>{syl}</span>
                     {i < getSyllables(showHelp).length - 1 && (
-                      <span className="text-gray-300 mx-1">·</span>
+                      <span style={{ color: '#D1D5DB', margin: '0 4px' }}>·</span>
                     )}
                   </span>
                 ))}
               </p>
             </div>
 
-            <div className="bg-blue-50 rounded-xl p-4 mb-4 text-center">
-              <p className="text-xs text-blue-400 mb-1">Say it like</p>
-              <p className="text-xl font-semibold text-blue-600">
+            <div style={{ background: '#EFF6FF', borderRadius: 12, padding: 16, marginBottom: 16, textAlign: 'center' }}>
+              <p style={{ fontSize: 12, color: '#93C5FD', marginBottom: 4 }}>Say it like</p>
+              <p style={{ fontSize: 20, fontWeight: 600, color: '#2563EB' }}>
                 {getAgeAppropriateHint(showHelp, gradeLevel)}
               </p>
             </div>
 
             {getPhoneticHelp(showHelp)?.hint && (
-              <p className="text-center text-gray-500 text-sm mb-4">
+              <p style={{ textAlign: 'center', color: '#6B7280', fontSize: 14, marginBottom: 16 }}>
                 💡 {getPhoneticHelp(showHelp)?.hint}
               </p>
             )}
 
             <button
               onClick={() => setShowHelp(null)}
-              className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors"
+              style={{ width: '100%', padding: 12, background: '#3B82F6', color: 'white', borderRadius: 12, fontWeight: 600, border: 'none', cursor: 'pointer', fontSize: 16 }}
             >
               Got it!
             </button>
           </div>
         </div>
       )}
-
-      {/* Swipe line - follows finger under the words */}
-      {swipePos && textContainerRef.current && (() => {
-        const r = textContainerRef.current!.getBoundingClientRect();
-        const inRange = swipePos.y >= r.top - 30 && swipePos.y <= r.bottom + 30;
-        if (!inRange) return null;
-        return (
-          <div
-            style={{
-              position: 'fixed',
-              left: swipePos.x - 30,
-              top: swipePos.y + 10,
-              width: 60,
-              height: 4,
-              borderRadius: 2,
-              background: 'linear-gradient(90deg, transparent, #3B82F6, #3B82F6, transparent)',
-              boxShadow: '0 0 12px rgba(59,130,246,0.5), 0 0 4px rgba(59,130,246,0.3)',
-              pointerEvents: 'none',
-              zIndex: 50,
-            }}
-          />
-        );
-      })()}
 
       {/* Page transition animation */}
       <PageTransition
