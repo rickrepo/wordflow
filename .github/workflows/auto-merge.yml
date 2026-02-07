@@ -2,7 +2,7 @@ name: Auto-merge and Deploy
 
 on:
   push:
-    branches: ["claude/web-speech-api-poc-zXY5i"]
+    branches: ["claude/web-speech-api-poc-zXY5i", "claude/restore-ui-and-animals-PJOWD"]
 
 permissions:
   contents: write
@@ -31,7 +31,7 @@ jobs:
       - name: Merge to main
         run: |
           git checkout main
-          git merge origin/claude/web-speech-api-poc-zXY5i --no-edit
+          git merge origin/${{ github.ref_name }} --no-edit
           git push origin main
 
   build:
