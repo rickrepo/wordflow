@@ -36,8 +36,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [pageComplete, setPageComplete] = useState(false);
   const [showPageTransition, setShowPageTransition] = useState(false);
   const [progress, setProgress] = useState<GameProgress | null>(null);
+  const [swipePos, setSwipePos] = useState<{ x: number; y: number } | null>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
 
   const pageText = story.pages[currentPage];
   const totalPages = story.pages.length;
@@ -91,6 +93,9 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const handleSwipeAt = useCallback((x: number, y: number) => {
     if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
 
+    // Track finger position for swipe line
+    setSwipePos({ x, y: y + 50 }); // +50 to undo the -50 offset, get real screen Y
+
     let foundIndex: number | null = null;
 
     wordRefs.current.forEach((ref, index) => {
@@ -143,6 +148,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       handleSwipeAt(touch.clientX, touch.clientY - 50);
     }
   }, [handleSwipeAt]);
+
+  const handleSwipeEnd = useCallback(() => {
+    setSwipePos(null);
+  }, []);
 
   // Word tap for help
   const handleWordTap = (index: number) => {
@@ -200,7 +209,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
+      onPointerUp={handleSwipeEnd}
+      onPointerLeave={handleSwipeEnd}
       onTouchMove={handleTouchMove}
+      onTouchEnd={handleSwipeEnd}
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
     >
@@ -248,7 +260,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative z-10">
         <div className="w-full max-w-3xl">
           {/* Text container */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 md:p-10">
+          <div ref={textContainerRef} className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6 md:p-10">
             <p className="text-center leading-relaxed font-medium">
               {wordStates.map((ws, i) => renderWord(ws, i))}
             </p>
@@ -306,6 +318,29 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           </div>
         </div>
       )}
+
+      {/* Swipe line - follows finger under the words */}
+      {swipePos && textContainerRef.current && (() => {
+        const r = textContainerRef.current!.getBoundingClientRect();
+        const inRange = swipePos.y >= r.top - 30 && swipePos.y <= r.bottom + 30;
+        if (!inRange) return null;
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              left: swipePos.x - 30,
+              top: swipePos.y + 10,
+              width: 60,
+              height: 4,
+              borderRadius: 2,
+              background: 'linear-gradient(90deg, transparent, #3B82F6, #3B82F6, transparent)',
+              boxShadow: '0 0 12px rgba(59,130,246,0.5), 0 0 4px rgba(59,130,246,0.3)',
+              pointerEvents: 'none',
+              zIndex: 50,
+            }}
+          />
+        );
+      })()}
 
       {/* Page transition animation */}
       <PageTransition
