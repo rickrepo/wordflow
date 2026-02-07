@@ -136,17 +136,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates]);
 
-  // Pointer events (desktop + some mobile)
+  // Pointer events work for both mouse (desktop) and touch (mobile)
+  // when touch-action: none is set. No need for separate touch handlers.
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     handleSwipeAt(e.clientX, e.clientY - 50);
-  }, [handleSwipeAt]);
-
-  // Touch events (mobile fallback)
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length > 0) {
-      const touch = e.touches[0];
-      handleSwipeAt(touch.clientX, touch.clientY - 50);
-    }
   }, [handleSwipeAt]);
 
   const handleSwipeEnd = useCallback(() => {
@@ -210,9 +203,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerUp={handleSwipeEnd}
-      onPointerLeave={handleSwipeEnd}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleSwipeEnd}
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}
     >
