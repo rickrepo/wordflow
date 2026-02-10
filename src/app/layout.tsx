@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <div style={{ position: 'fixed', top: 4, right: 8, zIndex: 9999, fontSize: 10, color: 'rgba(0,0,0,0.3)' }}>v3.9</div>
+        <div style={{ position: 'fixed', top: 4, right: 8, zIndex: 9999, fontSize: 10, color: 'rgba(0,0,0,0.3)' }}>v4.0</div>
         {children}
       </body>
     </html>

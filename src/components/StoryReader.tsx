@@ -45,6 +45,8 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [hasStartedReading, setHasStartedReading] = useState(false);
   const pointerXRef = useRef<number | null>(null);
   const isPointerDownRef = useRef(false);
+  const swipeDistRef = useRef(0);       // cumulative rightward movement
+  const prevClientXRef = useRef(0);      // last pointer X for delta calc
   const fingerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -145,7 +147,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
             setPageFading(false);
           }, 400);
         }
-      }, 300);
+      }, 1500); // patient delay so kids can finish reading the completed page
     }
   }, [wordStates, pageComplete, progress, isLastPage, onComplete]);
 
@@ -160,9 +162,15 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   // Uses refs + direct DOM manipulation for the finger to avoid re-renders on every move
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
+    if (!isPointerDownRef.current) return; // only track when finger is down
 
     const x = e.clientX;
-    const y = e.clientY - 50;
+    const y = e.clientY - 15; // gentle offset for finger coverage
+
+    // Track cumulative rightward swipe distance
+    const dx = x - prevClientXRef.current;
+    if (dx > 0) swipeDistRef.current += dx;
+    prevClientXRef.current = x;
 
     // Track pointer X with ref (no re-render) and update finger position via DOM
     if (textBoxRef.current) {
@@ -206,8 +214,9 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     if (foundIndex !== null) {
       if (!hasStartedReading) setHasStartedReading(true);
 
-      // Only complete if it's the next word in sequence (no state updates for wrong words)
-      if (foundIndex === nextToRead) {
+      // Only complete if it's the next word in sequence AND finger has actually swiped
+      // Require 12px of cumulative rightward movement to prevent accidental taps
+      if (foundIndex === nextToRead && swipeDistRef.current >= 12) {
         setWordStates(prev => prev.map((ws, i) => {
           if (i === foundIndex) {
             const newVisitCount = ws.visitCount + 1;
@@ -220,16 +229,22 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           }
           return ws;
         }));
+        // Reset swipe distance after completing a word so next word also needs a swipe
+        swipeDistRef.current = 0;
       }
     }
   }, [showHelp, showPageTransition, pageComplete, wordStates, hasStartedReading, textLines, activeLineIndex]);
 
-  const handlePointerDown = useCallback(() => {
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     isPointerDownRef.current = true;
+    prevClientXRef.current = e.clientX;
+    swipeDistRef.current = 0; // reset swipe distance on each new touch
   }, []);
 
   const handlePointerUp = useCallback(() => {
     isPointerDownRef.current = false;
+    swipeDistRef.current = 0;
+    prevClientXRef.current = 0;
     // Snap finger back to next word position via DOM
     if (fingerRef.current && textBoxRef.current) {
       const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
