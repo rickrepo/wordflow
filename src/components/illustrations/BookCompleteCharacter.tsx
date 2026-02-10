@@ -59,7 +59,7 @@ export default function BookCompleteCharacter({ storyId }: BookCompleteCharacter
       {/* BEAR - peeking from bottom right */}
       {character === 'bear' && (
         <div className="absolute -bottom-10 right-10 animate-peek-celebrate" style={{ filter: 'url(#bookShadow)' }}>
-          <svg width="280" height="250" viewBox="0 0 280 250">
+          <svg width="280" height="250" viewBox="0 0 280 250" overflow="visible">
             <ellipse cx="140" cy="230" rx="130" ry="70" fill="#4E342E" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="140" cy="120" rx="95" ry="80" fill="#5D4037" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="140" cy="125" rx="80" ry="68" fill="#6D4C41" style={{ filter: 'url(#bookPaperRough)' }} />
@@ -85,7 +85,7 @@ export default function BookCompleteCharacter({ storyId }: BookCompleteCharacter
       {/* DOG - peeking from bottom center */}
       {character === 'dog' && (
         <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 animate-peek-celebrate-bounce" style={{ filter: 'url(#bookShadow)' }}>
-          <svg width="280" height="240" viewBox="0 0 280 240">
+          <svg width="280" height="240" viewBox="0 0 280 240" overflow="visible">
             <ellipse cx="140" cy="220" rx="130" ry="65" fill="#795548" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="140" cy="115" rx="95" ry="80" fill="#8D6E63" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="140" cy="120" rx="82" ry="68" fill="#A1887F" style={{ filter: 'url(#bookPaperRough)' }} />
@@ -109,7 +109,7 @@ export default function BookCompleteCharacter({ storyId }: BookCompleteCharacter
       {/* CAT - peeking from right side */}
       {character === 'cat' && (
         <div className="absolute -right-8 top-1/3 animate-peek-celebrate-side" style={{ filter: 'url(#bookShadow)' }}>
-          <svg width="240" height="280" viewBox="0 0 240 280">
+          <svg width="240" height="280" viewBox="0 0 240 280" overflow="visible">
             <ellipse cx="160" cy="170" rx="90" ry="105" fill="#FF8A65" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="155" cy="170" rx="75" ry="90" fill="#FFAB91" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="115" cy="100" rx="78" ry="70" fill="#FF8A65" style={{ filter: 'url(#bookPaperRough)' }} />
@@ -137,7 +137,7 @@ export default function BookCompleteCharacter({ storyId }: BookCompleteCharacter
       {/* FROG - bouncing from bottom */}
       {character === 'frog' && (
         <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 animate-peek-celebrate-bounce-high" style={{ filter: 'url(#bookShadow)' }}>
-          <svg width="300" height="200" viewBox="0 0 300 200">
+          <svg width="300" height="200" viewBox="0 0 300 200" overflow="visible">
             <ellipse cx="150" cy="160" rx="125" ry="60" fill="#388E3C" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="150" cy="155" rx="105" ry="50" fill="#43A047" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="150" cy="105" rx="100" ry="62" fill="#4CAF50" style={{ filter: 'url(#bookPaperRough)' }} />
@@ -159,7 +159,7 @@ export default function BookCompleteCharacter({ storyId }: BookCompleteCharacter
       {/* BUTTERFLY - fluttering at top */}
       {character === 'butterfly' && (
         <div className="absolute top-10 left-1/2 -translate-x-1/2 animate-peek-celebrate-flutter" style={{ filter: 'url(#bookShadow)' }}>
-          <svg width="260" height="220" viewBox="0 0 260 220">
+          <svg width="260" height="220" viewBox="0 0 260 220" overflow="visible">
             <ellipse cx="65" cy="85" rx="55" ry="45" fill="#E91E63" className="animate-wing-left" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="70" cy="90" rx="40" ry="32" fill="#F48FB1" className="animate-wing-left" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="55" cy="150" rx="45" ry="38" fill="#9C27B0" className="animate-wing-left" style={{ filter: 'url(#bookPaperRough)' }} />
@@ -185,7 +185,7 @@ export default function BookCompleteCharacter({ storyId }: BookCompleteCharacter
       {/* For other characters, default to bear style from bottom */}
       {!['bear', 'dog', 'cat', 'frog', 'butterfly'].includes(character) && (
         <div className="absolute -bottom-10 right-10 animate-peek-celebrate" style={{ filter: 'url(#bookShadow)' }}>
-          <svg width="280" height="250" viewBox="0 0 280 250">
+          <svg width="280" height="250" viewBox="0 0 280 250" overflow="visible">
             <ellipse cx="140" cy="230" rx="130" ry="70" fill="#4E342E" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="140" cy="120" rx="95" ry="80" fill="#5D4037" style={{ filter: 'url(#bookPaperRough)' }} />
             <ellipse cx="140" cy="125" rx="80" ry="68" fill="#6D4C41" style={{ filter: 'url(#bookPaperRough)' }} />

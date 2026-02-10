@@ -67,7 +67,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* CAT - walking/prowling */}
       {character === 'cat' && (
         <div className="animate-walk-slow w-20 h-16">
-          <svg viewBox="0 0 80 60" className="w-full h-full">
+          <svg viewBox="0 0 80 60" className="w-full h-full" overflow="visible">
             <ellipse cx="40" cy="35" rx="25" ry="18" fill="#FF8A65" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="25" cy="25" r="12" fill="#FF8A65" style={{ filter: 'url(#bgPaperRough)' }} />
             <path d="M15,18 L10,8 L20,15" fill="#FF8A65" />
@@ -86,7 +86,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* DOG - happy trotting */}
       {character === 'dog' && (
         <div className="animate-trot w-20 h-16">
-          <svg viewBox="0 0 80 60" className="w-full h-full">
+          <svg viewBox="0 0 80 60" className="w-full h-full" overflow="visible">
             <ellipse cx="40" cy="35" rx="25" ry="16" fill="#8D6E63" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="20" cy="28" r="14" fill="#8D6E63" style={{ filter: 'url(#bgPaperRough)' }} />
             <ellipse cx="15" cy="28" rx="8" ry="6" fill="#D7CCC8" />
@@ -107,7 +107,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* FROG - hopping */}
       {character === 'frog' && (
         <div className="animate-hop w-16 h-14">
-          <svg viewBox="0 0 60 50" className="w-full h-full">
+          <svg viewBox="0 0 60 50" className="w-full h-full" overflow="visible">
             <ellipse cx="30" cy="32" rx="22" ry="14" fill="#4CAF50" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="18" cy="18" r="10" fill="#4CAF50" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="42" cy="18" r="10" fill="#4CAF50" style={{ filter: 'url(#bgPaperRough)' }} />
@@ -124,7 +124,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* BUTTERFLY - fluttering */}
       {character === 'butterfly' && (
         <div className="animate-flutter w-16 h-14">
-          <svg viewBox="0 0 60 50" className="w-full h-full">
+          <svg viewBox="0 0 60 50" className="w-full h-full" overflow="visible">
             <ellipse cx="20" cy="22" rx="14" ry="12" fill="#E91E63" className="animate-wing-left-bg" style={{ filter: 'url(#bgPaperRough)' }} />
             <ellipse cx="40" cy="22" rx="14" ry="12" fill="#E91E63" className="animate-wing-right-bg" style={{ filter: 'url(#bgPaperRough)' }} />
             <ellipse cx="18" cy="35" rx="10" ry="8" fill="#9C27B0" className="animate-wing-left-bg" style={{ filter: 'url(#bgPaperRough)' }} />
@@ -140,7 +140,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* FISH - swimming */}
       {character === 'fish' && (
         <div className="animate-swim w-18 h-12">
-          <svg viewBox="0 0 70 45" className="w-full h-full">
+          <svg viewBox="0 0 70 45" className="w-full h-full" overflow="visible">
             <ellipse cx="30" cy="22" rx="22" ry="14" fill="#2196F3" style={{ filter: 'url(#bgPaperRough)' }} />
             <path d="M52,22 L65,12 L65,32 Z" fill="#1976D2" className="animate-fish-tail" style={{ filter: 'url(#bgPaperRough)' }} />
             <path d="M25,10 Q35,2 42,10" fill="#1976D2" />
@@ -154,7 +154,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* DRAGON - flying slowly */}
       {character === 'dragon' && (
         <div className="animate-fly-slow w-24 h-16">
-          <svg viewBox="0 0 90 60" className="w-full h-full">
+          <svg viewBox="0 0 90 60" className="w-full h-full" overflow="visible">
             <ellipse cx="45" cy="35" rx="28" ry="16" fill="#4CAF50" style={{ filter: 'url(#bgPaperRough)' }} />
             <ellipse cx="22" cy="30" rx="16" ry="12" fill="#4CAF50" style={{ filter: 'url(#bgPaperRough)' }} />
             <ellipse cx="10" cy="32" rx="10" ry="7" fill="#66BB6A" />
@@ -171,7 +171,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* ROCKET - hovering */}
       {character === 'rocket' && (
         <div className="animate-hover w-12 h-20">
-          <svg viewBox="0 0 45 75" className="w-full h-full">
+          <svg viewBox="0 0 45 75" className="w-full h-full" overflow="visible">
             <ellipse cx="22" cy="35" rx="12" ry="28" fill="#E53935" style={{ filter: 'url(#bgPaperRough)' }} />
             <path d="M22,5 L12,25 L32,25 Z" fill="#1976D2" />
             <circle cx="22" cy="32" r="7" fill="#BBDEFB" />
@@ -185,7 +185,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* OCTOPUS - floating */}
       {character === 'octopus' && (
         <div className="animate-float-gentle w-20 h-18">
-          <svg viewBox="0 0 75 70" className="w-full h-full">
+          <svg viewBox="0 0 75 70" className="w-full h-full" overflow="visible">
             <ellipse cx="38" cy="25" rx="25" ry="20" fill="#9C27B0" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="30" cy="22" r="5" fill="white" />
             <circle cx="46" cy="22" r="5" fill="white" />
@@ -202,7 +202,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* BIRD - flying */}
       {character === 'bird' && (
         <div className="animate-fly-bob w-18 h-14">
-          <svg viewBox="0 0 70 55" className="w-full h-full">
+          <svg viewBox="0 0 70 55" className="w-full h-full" overflow="visible">
             <ellipse cx="35" cy="30" rx="18" ry="12" fill="#2196F3" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="50" cy="25" r="10" fill="#2196F3" style={{ filter: 'url(#bgPaperRough)' }} />
             <path d="M58,25 L70,28 L58,31" fill="#FF9800" />
@@ -217,7 +217,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* ROBOT - walking stiffly */}
       {character === 'robot' && (
         <div className="animate-robot-walk w-14 h-20">
-          <svg viewBox="0 0 50 75" className="w-full h-full">
+          <svg viewBox="0 0 50 75" className="w-full h-full" overflow="visible">
             <rect x="12" y="25" width="26" height="30" rx="3" fill="#78909C" style={{ filter: 'url(#bgPaperRough)' }} />
             <rect x="15" y="8" width="20" height="18" rx="3" fill="#90A4AE" style={{ filter: 'url(#bgPaperRough)' }} />
             <rect x="18" y="12" width="5" height="7" rx="1" fill="#BBDEFB" />
@@ -235,7 +235,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* BEAR - lumbering walk */}
       {character === 'bear' && (
         <div className="animate-lumber w-22 h-16">
-          <svg viewBox="0 0 85 60" className="w-full h-full">
+          <svg viewBox="0 0 85 60" className="w-full h-full" overflow="visible">
             <ellipse cx="45" cy="38" rx="30" ry="18" fill="#5D4037" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="22" cy="30" r="16" fill="#5D4037" style={{ filter: 'url(#bgPaperRough)' }} />
             <circle cx="10" cy="18" r="8" fill="#5D4037" />
@@ -257,7 +257,7 @@ export default function BackgroundCharacter({ storyId }: BackgroundCharacterProp
       {/* OWL - gentle head bob */}
       {character === 'owl' && (
         <div className="animate-owl-bob w-16 h-18">
-          <svg viewBox="0 0 60 70" className="w-full h-full">
+          <svg viewBox="0 0 60 70" className="w-full h-full" overflow="visible">
             <ellipse cx="30" cy="45" rx="20" ry="22" fill="#795548" style={{ filter: 'url(#bgPaperRough)' }} />
             <ellipse cx="30" cy="50" rx="12" ry="14" fill="#D7CCC8" />
             <ellipse cx="30" cy="25" rx="18" ry="16" fill="#8D6E63" style={{ filter: 'url(#bgPaperRough)' }} />

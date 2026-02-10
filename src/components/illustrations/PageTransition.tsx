@@ -69,18 +69,9 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
       {/* DINOSAUR BITE - A T-Rex head comes in and chomps at the text area */}
       {transition === 'dinosaur-bite' && (
         <>
-          {/* Bite mark overlay - semi-transparent to show scene through */}
-          <div className="absolute top-0 right-0 w-1/2 h-1/2 animate-bite-reveal">
-            <svg viewBox="0 0 200 200" className="w-full h-full">
-              <path
-                d="M200,0 L200,200 L0,200 L0,150 Q30,140 40,120 Q50,100 40,80 Q30,60 50,40 Q70,20 60,0 Z"
-                fill="rgba(0,0,0,0.3)"
-              />
-            </svg>
-          </div>
           {/* T-Rex head */}
           <div className="absolute -right-40 top-1/4 animate-dino-chomp drop-shadow-2xl">
-            <svg width="400" height="300" viewBox="0 0 400 300">
+            <svg width="400" height="300" viewBox="0 0 400 300" overflow="visible">
               {/* Head */}
               <ellipse cx="250" cy="150" rx="150" ry="100" fill="#2D5A27" />
               <ellipse cx="250" cy="150" rx="140" ry="90" fill="#3D7A37" />
@@ -141,7 +132,7 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
             </svg>
           </div>
           <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 animate-monster-grab drop-shadow-2xl">
-            <svg width="400" height="300" viewBox="0 0 400 300">
+            <svg width="400" height="300" viewBox="0 0 400 300" overflow="visible">
               {/* Furry arm */}
               <ellipse cx="200" cy="280" rx="100" ry="60" fill="#8B4513" />
               {/* Palm */}
@@ -177,7 +168,7 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
       {transition === 'cat-swipe' && (
         <>
           <div className="absolute -left-40 top-1/3 animate-cat-swipe drop-shadow-2xl">
-            <svg width="300" height="200" viewBox="0 0 300 200">
+            <svg width="300" height="200" viewBox="0 0 300 200" overflow="visible">
               {/* Arm */}
               <ellipse cx="50" cy="100" rx="80" ry="50" fill="#FF9F43" />
               {/* Paw */}
@@ -217,7 +208,7 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
       {transition === 'dog-shake' && (
         <>
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 animate-dog-head-shake drop-shadow-2xl">
-            <svg width="250" height="200" viewBox="0 0 250 200">
+            <svg width="250" height="200" viewBox="0 0 250 200" overflow="visible">
               {/* Head */}
               <ellipse cx="125" cy="100" rx="100" ry="80" fill="#D2691E" />
               {/* Snout */}
@@ -271,7 +262,7 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
           </div>
           {/* Frog peeking from bottom */}
           <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 animate-frog-appear drop-shadow-2xl">
-            <svg width="250" height="150" viewBox="0 0 250 150">
+            <svg width="250" height="150" viewBox="0 0 250 150" overflow="visible">
               {/* Head */}
               <ellipse cx="125" cy="100" rx="100" ry="60" fill="#2ECC71" />
               {/* Eyes - big and bulging */}

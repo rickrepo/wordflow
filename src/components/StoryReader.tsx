@@ -5,8 +5,6 @@ import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
 import { recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
 import StoryScene from './illustrations/StoryScene';
-import PageTransition from './illustrations/PageTransition';
-import BackgroundCharacter from './illustrations/BackgroundCharacter';
 
 interface StoryReaderProps {
   story: Story;
@@ -43,6 +41,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [showHelp, setShowHelp] = useState<string | null>(null);
   const [pageComplete, setPageComplete] = useState(false);
   const [showPageTransition, setShowPageTransition] = useState(false);
+  const [pageFading, setPageFading] = useState(false);
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [textLines, setTextLines] = useState<TextLine[]>([]);
   const [hasStartedReading, setHasStartedReading] = useState(false);
@@ -140,7 +139,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         if (isLastPage) {
           onComplete();
         } else {
-          setShowPageTransition(true);
+          // Simple fade transition to next page
+          setPageFading(true);
+          setTimeout(() => {
+            setCurrentPage(prev => prev + 1);
+            setPageFading(false);
+          }, 400);
         }
       }, 300);
     }
@@ -197,11 +201,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   };
 
-  const handlePageTransitionComplete = () => {
-    setShowPageTransition(false);
-    setCurrentPage(prev => prev + 1);
-  };
-
   const nextWordIndex = wordStates.findIndex(ws => !ws.isCompleted);
 
   // Figure out which line is "active" (has the next word to read)
@@ -222,9 +221,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     >
       {/* Full-screen immersive story scene */}
       <StoryScene storyId={story.id} />
-
-      {/* Subtle background character animation */}
-      <BackgroundCharacter storyId={story.id} />
 
       {/* Minimal floating controls */}
       <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
@@ -259,7 +255,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       </div>
 
       {/* Main reading area */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', position: 'relative', zIndex: 10 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', position: 'relative', zIndex: 10, opacity: pageFading ? 0 : 1, transition: 'opacity 0.35s ease' }}>
         <div style={{ width: '100%', maxWidth: 768 }}>
           {/* Text container with guide lines */}
           <div
@@ -423,12 +419,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         }
       `}} />
 
-      {/* Page transition animation */}
-      <PageTransition
-        show={showPageTransition}
-        storyId={story.id}
-        onComplete={handlePageTransitionComplete}
-      />
     </div>
   );
 }
