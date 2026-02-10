@@ -199,6 +199,42 @@ const grade1Stories: Story[] = [
       'Bella is my best friend forever!',
     ]
   },
+  {
+    id: 'g1-mila',
+    title: 'Mila and the Hula Hoops',
+    author: 'WordFlow',
+    coverEmoji: '🌀',
+    gradeLevel: 'grade1',
+    theme: 'adventure',
+    pages: [
+      'Mila loved hula hoops more than anything.',
+      'She could spin one hoop around her waist.',
+      'Then she added two hoops at the same time!',
+      'She tried three hoops and they all kept spinning.',
+      'Her friends watched and cheered for her.',
+      'Mila even tried a hoop on her arm.',
+      'She danced and spun all around the yard.',
+      'Mila smiled because hula hoops make her happy!',
+    ]
+  },
+  {
+    id: 'g1-eric',
+    title: 'Eric and the Fast Cars',
+    author: 'WordFlow',
+    coverEmoji: '🏎️',
+    gradeLevel: 'grade1',
+    theme: 'adventure',
+    pages: [
+      'Eric loved cars more than anything.',
+      'He had a big red car and a small blue one.',
+      'He liked to race them down the driveway.',
+      'The red car was fast but the blue car was faster!',
+      'Eric made a ramp out of an old box.',
+      'The cars flew off the ramp into the air!',
+      'His little sister wanted to race cars too.',
+      'Now Eric and his sister race cars every day!',
+    ]
+  },
 ];
 
 // Grade 2 Stories - More complex sentences and vocabulary

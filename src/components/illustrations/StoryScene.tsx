@@ -1088,6 +1088,195 @@ const DetectiveScene = () => (
   </SceneWrapper>
 );
 
+const HulaHoopScene = () => (
+  <SceneWrapper bgClass="bg-gradient-to-b from-pink-200 via-fuchsia-100 to-yellow-100">
+    {/* Sun */}
+    <div className="absolute -top-8 -right-8 w-40 opacity-70">
+      <Sun />
+    </div>
+
+    {/* Clouds */}
+    <div className="absolute top-12 left-8 w-28 opacity-50">
+      <Cloud />
+    </div>
+
+    {/* Hula hoops scattered */}
+    <div className="absolute bottom-1/3 left-1/4 opacity-70">
+      <svg viewBox="0 0 120 120" className="w-32 animate-spin-slow" style={{ animationDuration: '4s' }}>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#E91E63" strokeWidth="8" />
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#F48FB1" strokeWidth="4" strokeDasharray="15 10" />
+      </svg>
+    </div>
+    <div className="absolute top-1/3 right-12 opacity-60">
+      <svg viewBox="0 0 100 100" className="w-24 animate-spin-slow" style={{ animationDuration: '5s', animationDirection: 'reverse' }}>
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#9C27B0" strokeWidth="7" />
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#CE93D8" strokeWidth="3" strokeDasharray="12 8" />
+      </svg>
+    </div>
+    <div className="absolute bottom-24 right-1/4 opacity-50">
+      <svg viewBox="0 0 80 80" className="w-20 animate-spin-slow" style={{ animationDuration: '6s' }}>
+        <circle cx="40" cy="40" r="33" fill="none" stroke="#FF9800" strokeWidth="6" />
+        <circle cx="40" cy="40" r="33" fill="none" stroke="#FFB74D" strokeWidth="3" strokeDasharray="10 6" />
+      </svg>
+    </div>
+
+    {/* Girl figure (Mila) */}
+    <div className="absolute bottom-16 left-8 opacity-90">
+      <svg viewBox="0 0 80 130" className="w-24">
+        {/* Hair */}
+        <ellipse cx="40" cy="28" rx="18" ry="20" fill="#5D4037" />
+        <ellipse cx="25" cy="40" rx="8" ry="16" fill="#5D4037" />
+        <ellipse cx="55" cy="40" rx="8" ry="16" fill="#5D4037" />
+        {/* Face */}
+        <circle cx="40" cy="30" r="15" fill="#FFCCBC" />
+        {/* Eyes */}
+        <circle cx="34" cy="28" r="3" fill="#1A1A1A" />
+        <circle cx="46" cy="28" r="3" fill="#1A1A1A" />
+        <circle cx="35" cy="27" r="1" fill="white" />
+        <circle cx="47" cy="27" r="1" fill="white" />
+        {/* Smile */}
+        <path d="M34 35 Q40 40 46 35" stroke="#E91E63" strokeWidth="2" fill="none" />
+        {/* Body / dress */}
+        <path d="M30 45 L25 90 L55 90 L50 45 Z" fill="#E91E63" />
+        <path d="M32 48 L28 85 L52 85 L48 48 Z" fill="#F48FB1" opacity="0.6" />
+        {/* Arms out */}
+        <line x1="30" y1="52" x2="10" y2="60" stroke="#FFCCBC" strokeWidth="6" strokeLinecap="round" />
+        <line x1="50" y1="52" x2="70" y2="60" stroke="#FFCCBC" strokeWidth="6" strokeLinecap="round" />
+        {/* Legs */}
+        <rect x="32" y="90" width="6" height="25" fill="#FFCCBC" />
+        <rect x="42" y="90" width="6" height="25" fill="#FFCCBC" />
+        {/* Shoes */}
+        <ellipse cx="35" cy="117" rx="8" ry="5" fill="#9C27B0" />
+        <ellipse cx="45" cy="117" rx="8" ry="5" fill="#9C27B0" />
+        {/* Hoop around waist */}
+        <ellipse cx="40" cy="70" rx="30" ry="10" fill="none" stroke="#4CAF50" strokeWidth="5" className="animate-sway" style={{ animationDuration: '0.8s' }} />
+      </svg>
+    </div>
+
+    {/* Butterflies */}
+    <div className="absolute top-1/4 left-1/2 w-12 opacity-65">
+      <Butterfly color="purple" />
+    </div>
+
+    {/* Grass */}
+    <div className="absolute bottom-0 left-0 right-0 h-12 opacity-80">
+      <Grass />
+    </div>
+
+    {/* Sparkles */}
+    <div className="absolute top-1/2 right-8 text-xl animate-twinkle">✨</div>
+    <div className="absolute bottom-1/4 left-1/3 text-lg animate-twinkle" style={{ animationDelay: '0.7s' }}>✨</div>
+  </SceneWrapper>
+);
+
+const CarsScene = () => (
+  <SceneWrapper bgClass="bg-gradient-to-b from-sky-200 via-blue-100 to-slate-200">
+    {/* Sun */}
+    <div className="absolute -top-8 left-4 w-36 opacity-65">
+      <Sun />
+    </div>
+
+    {/* Clouds */}
+    <div className="absolute top-10 right-12 w-32 opacity-55">
+      <Cloud />
+    </div>
+    <div className="absolute top-20 left-1/3 w-24 opacity-40">
+      <Cloud />
+    </div>
+
+    {/* Road */}
+    <div className="absolute bottom-0 left-0 right-0 opacity-80">
+      <svg viewBox="0 0 400 60" className="w-full" preserveAspectRatio="none">
+        <rect x="0" y="10" width="400" height="50" fill="#616161" />
+        <rect x="0" y="8" width="400" height="6" fill="#9E9E9E" />
+        {/* Dashed center line */}
+        <line x1="0" y1="35" x2="400" y2="35" stroke="#FFC107" strokeWidth="3" strokeDasharray="20 15" />
+      </svg>
+    </div>
+
+    {/* Red car */}
+    <div className="absolute bottom-10 left-8 opacity-90">
+      <svg viewBox="0 0 120 60" className="w-32">
+        {/* Body */}
+        <rect x="10" y="25" width="100" height="25" fill="#F44336" rx="5" />
+        <path d="M30 25 Q35 8 55 8 Q75 8 80 25" fill="#E53935" />
+        {/* Windows */}
+        <path d="M35 25 Q38 13 55 13 Q62 13 65 25" fill="#BBDEFB" />
+        <path d="M68 25 Q70 15 78 25" fill="#BBDEFB" />
+        {/* Wheels */}
+        <circle cx="30" cy="50" r="10" fill="#424242" />
+        <circle cx="30" cy="50" r="5" fill="#9E9E9E" />
+        <circle cx="85" cy="50" r="10" fill="#424242" />
+        <circle cx="85" cy="50" r="5" fill="#9E9E9E" />
+        {/* Headlight */}
+        <ellipse cx="108" cy="35" rx="4" ry="5" fill="#FFEB3B" />
+      </svg>
+    </div>
+
+    {/* Blue car (faster, ahead) */}
+    <div className="absolute bottom-12 right-4 opacity-85">
+      <svg viewBox="0 0 110 55" className="w-28">
+        {/* Body */}
+        <rect x="8" y="22" width="95" height="23" fill="#1976D2" rx="5" />
+        <path d="M28 22 Q32 7 50 7 Q68 7 72 22" fill="#1565C0" />
+        {/* Windows */}
+        <path d="M32 22 Q35 11 50 11 Q58 11 60 22" fill="#BBDEFB" />
+        <path d="M63 22 Q65 13 72 22" fill="#BBDEFB" />
+        {/* Wheels */}
+        <circle cx="28" cy="45" r="9" fill="#424242" />
+        <circle cx="28" cy="45" r="4.5" fill="#9E9E9E" />
+        <circle cx="78" cy="45" r="9" fill="#424242" />
+        <circle cx="78" cy="45" r="4.5" fill="#9E9E9E" />
+        {/* Headlight */}
+        <ellipse cx="100" cy="32" rx="3.5" ry="4.5" fill="#FFEB3B" />
+        {/* Speed lines */}
+        <line x1="0" y1="28" x2="-12" y2="28" stroke="#90CAF9" strokeWidth="2" opacity="0.6" />
+        <line x1="0" y1="35" x2="-15" y2="35" stroke="#90CAF9" strokeWidth="2" opacity="0.5" />
+      </svg>
+    </div>
+
+    {/* Ramp */}
+    <div className="absolute bottom-14 left-1/3 opacity-60">
+      <svg viewBox="0 0 80 50" className="w-20">
+        <path d="M0 50 L80 50 L80 15 Z" fill="#8D6E63" />
+        <path d="M5 50 L80 50 L80 20 Z" fill="#A1887F" opacity="0.5" />
+      </svg>
+    </div>
+
+    {/* Boy figure (Eric) */}
+    <div className="absolute bottom-20 right-1/3 opacity-80">
+      <svg viewBox="0 0 50 90" className="w-14">
+        {/* Hair */}
+        <ellipse cx="25" cy="18" rx="12" ry="13" fill="#3E2723" />
+        {/* Face */}
+        <circle cx="25" cy="20" r="10" fill="#FFCCBC" />
+        {/* Eyes */}
+        <circle cx="21" cy="18" r="2" fill="#1A1A1A" />
+        <circle cx="29" cy="18" r="2" fill="#1A1A1A" />
+        {/* Smile */}
+        <path d="M21 24 Q25 28 29 24" stroke="#E91E63" strokeWidth="1.5" fill="none" />
+        {/* Body / shirt */}
+        <rect x="15" y="30" width="20" height="28" fill="#2196F3" rx="3" />
+        <rect x="17" y="33" width="16" height="22" fill="#42A5F5" opacity="0.5" rx="2" />
+        {/* Arms */}
+        <line x1="15" y1="34" x2="5" y2="48" stroke="#FFCCBC" strokeWidth="5" strokeLinecap="round" />
+        <line x1="35" y1="34" x2="45" y2="48" stroke="#FFCCBC" strokeWidth="5" strokeLinecap="round" />
+        {/* Legs */}
+        <rect x="17" y="58" width="5" height="20" fill="#424242" />
+        <rect x="28" y="58" width="5" height="20" fill="#424242" />
+        {/* Shoes */}
+        <ellipse cx="19" cy="80" rx="6" ry="4" fill="#F44336" />
+        <ellipse cx="31" cy="80" rx="6" ry="4" fill="#F44336" />
+      </svg>
+    </div>
+
+    {/* Tree */}
+    <div className="absolute bottom-4 left-0 w-20 opacity-50">
+      <Tree />
+    </div>
+  </SceneWrapper>
+);
+
 // Main scene selector
 export default function StoryScene({ storyId, className = '' }: StorySceneProps) {
   const scenes: Record<string, React.ReactNode> = {
@@ -1100,6 +1289,8 @@ export default function StoryScene({ storyId, className = '' }: StorySceneProps)
     'g1-dragon': <DragonScene />,
     'g1-rainbow': <RainbowScene />,
     'g1-puppy': <PuppyScene />,
+    'g1-mila': <HulaHoopScene />,
+    'g1-eric': <CarsScene />,
     'g2-space': <SpaceScene />,
     'g2-ocean': <OceanScene />,
     'g2-treehouse': <TreehouseScene />,

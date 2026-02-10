@@ -18,6 +18,8 @@ function getCharacterForStory(storyId: string): string {
     'g1-dragon': 'dragon',
     'g1-rainbow': 'butterfly',
     'g1-puppy': 'dog',
+    'g1-mila': 'butterfly',
+    'g1-eric': 'dog',
     'g2-space': 'rocket',
     'g2-ocean': 'octopus',
     'g2-treehouse': 'bird',
