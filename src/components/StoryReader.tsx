@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useDrag } from '@use-gesture/react';
 import { type Story, gradeLevelInfo, type GradeLevel } from '@/lib/stories';
 import { getPhoneticHelp, getSyllables, getAgeAppropriateHint } from '@/lib/phonetics';
 import { recordPageComplete, loadProgress, type GameProgress } from '@/lib/gameState';
@@ -43,10 +44,8 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [textLines, setTextLines] = useState<TextLine[]>([]);
   const [hasStartedReading, setHasStartedReading] = useState(false);
+  const swipeActiveRef = useRef(false);
   const pointerXRef = useRef<number | null>(null);
-  const isPointerDownRef = useRef(false);
-  const swipeActiveRef = useRef(false);    // true ONLY after confirmed deliberate swipe
-  const startXRef = useRef(0);             // X at pointerDown
   const fingerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -158,109 +157,112 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     line.wordIndices.includes(nextWordIndex)
   );
 
-  // Two-phase state machine:
-  //   IDLE  → finger is down but we don't know if it's a tap or swipe yet
-  //   SWIPE → confirmed deliberate rightward swipe, now we complete words
-  // Transition: pointer must move 50px net rightward from touch start.
-  // This is ~13mm on a phone — impossible to hit with a tap, easy with a swipe.
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
-    if (!isPointerDownRef.current) return;
+  // Gesture handling via @use-gesture/react — battle-tested tap vs drag detection.
+  // filterTaps: library identifies taps automatically (< 3px movement + quick release).
+  // We additionally require 50px net rightward movement before completing any words.
+  const bind = useDrag(
+    (state) => {
+      const { active, xy: [x, rawY], movement: [mx], tap, first, last } = state;
 
-    const x = e.clientX;
-    const y = e.clientY - 10;
+      // Library detected a tap — ignore completely
+      if (tap) return;
 
-    // Always update finger visual for responsiveness (even before swipe confirmed)
-    if (textBoxRef.current) {
-      const boxRect = textBoxRef.current.getBoundingClientRect();
-      pointerXRef.current = x - boxRect.left;
-
-      if (fingerRef.current && hasStartedReading) {
-        const activeLine = textLines[activeLineIndex];
-        if (activeLine) {
-          const lineWidth = activeLine.right - activeLine.left + 8;
-          const nextToReadIdx = wordStates.findIndex(ws => !ws.isCompleted);
-          let maxX = lineWidth - 28;
-          if (nextToReadIdx >= 0 && wordRefs.current[nextToReadIdx]) {
-            const nextWordRect = wordRefs.current[nextToReadIdx]!.getBoundingClientRect();
-            maxX = nextWordRect.right - boxRect.left - activeLine.left + 8;
+      // Drag ended — reset and snap finger back
+      if (!active) {
+        swipeActiveRef.current = false;
+        if (fingerRef.current && textBoxRef.current) {
+          const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
+          const activeLine = textLines.find(line => line.wordIndices.includes(nextIdx));
+          if (activeLine && nextIdx >= 0 && wordRefs.current[nextIdx]) {
+            const wordRect = wordRefs.current[nextIdx]!.getBoundingClientRect();
+            const boxRect = textBoxRef.current.getBoundingClientRect();
+            const defaultX = wordRect.left - boxRect.left - activeLine.left + 4;
+            const lineWidth = activeLine.right - activeLine.left + 8;
+            const clampedX = Math.max(0, Math.min(defaultX, lineWidth - 28));
+            fingerRef.current.style.left = `${clampedX}px`;
+            fingerRef.current.style.transition = 'left 0.2s ease-out';
           }
-          const fingerX = pointerXRef.current - activeLine.left + 4;
-          const clampedX = Math.max(0, Math.min(fingerX, maxX));
-          fingerRef.current.style.left = `${clampedX}px`;
-          fingerRef.current.style.transition = 'left 0.05s linear';
         }
-      }
-    }
-
-    // Phase 1: Is this a confirmed swipe yet?
-    if (!swipeActiveRef.current) {
-      if (x - startXRef.current >= 50) {
-        swipeActiveRef.current = true;
-        if (!hasStartedReading) setHasStartedReading(true);
-      } else {
-        return; // still might be a tap — do nothing
-      }
-    }
-
-    // Phase 2: Swipe confirmed — complete words the finger has passed
-    setWordStates(prev => {
-      let changed = false;
-      const updated = prev.map(ws => ({ ...ws }));
-
-      for (let i = 0; i < updated.length; i++) {
-        if (updated[i].isCompleted) continue;
-
-        const ref = wordRefs.current[i];
-        if (!ref) break;
-
-        const rect = ref.getBoundingClientRect();
-        const fingerBelowLine = y > rect.bottom + 25;
-        const onSameLine = y >= rect.top - 25 && y <= rect.bottom + 25;
-        const fingerPastWord = x >= rect.left + rect.width * 0.3;
-
-        if (fingerBelowLine || (onSameLine && fingerPastWord)) {
-          const newVisitCount = updated[i].visitCount + 1;
-          updated[i] = {
-            ...updated[i],
-            isCompleted: true,
-            visitCount: newVisitCount,
-            isStruggling: newVisitCount >= STRUGGLE_THRESHOLD,
-          };
-          changed = true;
-        } else {
-          break;
-        }
+        return;
       }
 
-      return changed ? updated : prev;
-    });
-  }, [showHelp, showPageTransition, pageComplete, wordStates, hasStartedReading, textLines, activeLineIndex]);
+      // New drag started — reset swipe flag
+      if (first) {
+        swipeActiveRef.current = false;
+      }
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    isPointerDownRef.current = true;
-    swipeActiveRef.current = false; // every new touch starts as not-a-swipe
-    startXRef.current = e.clientX;
-  }, []);
+      if (showHelp || showPageTransition || pageComplete) return;
 
-  const handlePointerUp = useCallback(() => {
-    isPointerDownRef.current = false;
-    swipeActiveRef.current = false;
-    // Snap finger back to next word position via DOM
-    if (fingerRef.current && textBoxRef.current) {
-      const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
-      const activeLine = textLines.find(line => line.wordIndices.includes(nextIdx));
-      if (activeLine && nextIdx >= 0 && wordRefs.current[nextIdx]) {
-        const wordRect = wordRefs.current[nextIdx]!.getBoundingClientRect();
+      const y = rawY - 10;
+
+      // Update finger visual (always, for responsiveness even before swipe confirmed)
+      if (textBoxRef.current) {
         const boxRect = textBoxRef.current.getBoundingClientRect();
-        const defaultX = wordRect.left - boxRect.left - activeLine.left + 4;
-        const lineWidth = activeLine.right - activeLine.left + 8;
-        const clampedX = Math.max(0, Math.min(defaultX, lineWidth - 28));
-        fingerRef.current.style.left = `${clampedX}px`;
-        fingerRef.current.style.transition = 'left 0.2s ease-out';
+        pointerXRef.current = x - boxRect.left;
+
+        if (fingerRef.current && hasStartedReading) {
+          const activeLine = textLines[activeLineIndex];
+          if (activeLine) {
+            const lineWidth = activeLine.right - activeLine.left + 8;
+            const nextToReadIdx = wordStates.findIndex(ws => !ws.isCompleted);
+            let maxX = lineWidth - 28;
+            if (nextToReadIdx >= 0 && wordRefs.current[nextToReadIdx]) {
+              const nextWordRect = wordRefs.current[nextToReadIdx]!.getBoundingClientRect();
+              maxX = nextWordRect.right - boxRect.left - activeLine.left + 8;
+            }
+            const fingerX = pointerXRef.current - activeLine.left + 4;
+            const clampedX = Math.max(0, Math.min(fingerX, maxX));
+            fingerRef.current.style.left = `${clampedX}px`;
+            fingerRef.current.style.transition = 'left 0.05s linear';
+          }
+        }
       }
-    }
-  }, [wordStates, textLines]);
+
+      // Gate: require 50px net rightward movement to confirm this is a real swipe
+      if (!swipeActiveRef.current) {
+        if (mx >= 50) {
+          swipeActiveRef.current = true;
+          if (!hasStartedReading) setHasStartedReading(true);
+        } else {
+          return; // not yet confirmed as a swipe
+        }
+      }
+
+      // Swipe confirmed — complete all sequential words the finger has passed
+      setWordStates(prev => {
+        let changed = false;
+        const updated = prev.map(ws => ({ ...ws }));
+
+        for (let i = 0; i < updated.length; i++) {
+          if (updated[i].isCompleted) continue;
+
+          const ref = wordRefs.current[i];
+          if (!ref) break;
+
+          const rect = ref.getBoundingClientRect();
+          const fingerBelowLine = y > rect.bottom + 25;
+          const onSameLine = y >= rect.top - 25 && y <= rect.bottom + 25;
+          const fingerPastWord = x >= rect.left + rect.width * 0.3;
+
+          if (fingerBelowLine || (onSameLine && fingerPastWord)) {
+            const newVisitCount = updated[i].visitCount + 1;
+            updated[i] = {
+              ...updated[i],
+              isCompleted: true,
+              visitCount: newVisitCount,
+              isStruggling: newVisitCount >= STRUGGLE_THRESHOLD,
+            };
+            changed = true;
+          } else {
+            break;
+          }
+        }
+
+        return changed ? updated : prev;
+      });
+    },
+    { filterTaps: true, pointer: { touch: true } }
+  );
 
   // Word tap for help
   const handleWordTap = (index: number) => {
@@ -277,10 +279,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   return (
     <div
       ref={containerRef}
-      onPointerMove={handlePointerMove}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      {...bind()}
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as React.CSSProperties}
     >
