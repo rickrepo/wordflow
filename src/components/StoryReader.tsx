@@ -45,8 +45,8 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [hasStartedReading, setHasStartedReading] = useState(false);
   const pointerXRef = useRef<number | null>(null);
   const isPointerDownRef = useRef(false);
-  const startXRef = useRef(0);           // where the finger first touched down
-  const startYRef = useRef(0);           // Y at touch start (for line-change detection)
+  const swipeActiveRef = useRef(false);    // true ONLY after confirmed deliberate swipe
+  const startXRef = useRef(0);             // X at pointerDown
   const fingerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -158,44 +158,29 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     line.wordIndices.includes(nextWordIndex)
   );
 
-  // Minimum net rightward distance (px) the finger must travel from its touch-down
-  // point before any words can complete. This distinguishes a deliberate swipe from
-  // a tap (which produces ±5-15px of random wobble but near-zero net displacement).
-  const SWIPE_THRESHOLD = 30;
-
-  // Pointer handler - position-based word completion
-  // Uses NET displacement from touch start (not cumulative micro-movements) so that
-  // random finger wobble during a tap never triggers word completion.
+  // Two-phase state machine:
+  //   IDLE  → finger is down but we don't know if it's a tap or swipe yet
+  //   SWIPE → confirmed deliberate rightward swipe, now we complete words
+  // Transition: pointer must move 50px net rightward from touch start.
+  // This is ~13mm on a phone — impossible to hit with a tap, easy with a swipe.
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
-    if (!isPointerDownRef.current) return; // only track when finger is down
+    if (!isPointerDownRef.current) return;
 
     const x = e.clientX;
-    const y = e.clientY - 10; // very gentle offset for finger coverage
+    const y = e.clientY - 10;
 
-    // If the finger moved to a different text line (Y jumped 40px+), reset the
-    // swipe origin so each line requires its own deliberate swipe.
-    if (Math.abs(e.clientY - startYRef.current) > 40) {
-      startXRef.current = x;
-      startYRef.current = e.clientY;
-    }
-
-    // Net rightward distance from where the finger touched down (or line-reset point)
-    const netSwipe = x - startXRef.current;
-
-    // Track pointer X with ref (no re-render) and update finger position via DOM
+    // Always update finger visual for responsiveness (even before swipe confirmed)
     if (textBoxRef.current) {
       const boxRect = textBoxRef.current.getBoundingClientRect();
       pointerXRef.current = x - boxRect.left;
 
-      // Directly update finger position for smooth tracking (bypasses React render)
-      // Clamp to right edge of next unread word so finger can't skip ahead
-      if (fingerRef.current && isPointerDownRef.current && hasStartedReading) {
+      if (fingerRef.current && hasStartedReading) {
         const activeLine = textLines[activeLineIndex];
         if (activeLine) {
           const lineWidth = activeLine.right - activeLine.left + 8;
           const nextToReadIdx = wordStates.findIndex(ws => !ws.isCompleted);
-          let maxX = lineWidth - 28; // default: end of line
+          let maxX = lineWidth - 28;
           if (nextToReadIdx >= 0 && wordRefs.current[nextToReadIdx]) {
             const nextWordRect = wordRefs.current[nextToReadIdx]!.getBoundingClientRect();
             maxX = nextWordRect.right - boxRect.left - activeLine.left + 8;
@@ -208,14 +193,17 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       }
     }
 
-    // Must swipe 30px net rightward before any words complete.
-    // Net displacement (not cumulative) means random tap wobble can't trigger this.
-    if (netSwipe < SWIPE_THRESHOLD) return;
+    // Phase 1: Is this a confirmed swipe yet?
+    if (!swipeActiveRef.current) {
+      if (x - startXRef.current >= 50) {
+        swipeActiveRef.current = true;
+        if (!hasStartedReading) setHasStartedReading(true);
+      } else {
+        return; // still might be a tap — do nothing
+      }
+    }
 
-    if (!hasStartedReading) setHasStartedReading(true);
-
-    // Position-based completion: complete all sequential words the finger has swept past.
-    // This handles fast swipes (no words skipped) and avoids hitbox overlap bugs.
+    // Phase 2: Swipe confirmed — complete words the finger has passed
     setWordStates(prev => {
       let changed = false;
       const updated = prev.map(ws => ({ ...ws }));
@@ -224,16 +212,12 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         if (updated[i].isCompleted) continue;
 
         const ref = wordRefs.current[i];
-        if (!ref) break; // stop if we can't measure
+        if (!ref) break;
 
         const rect = ref.getBoundingClientRect();
-
-        // Word is on a line the finger has already passed (finger is well below it)
         const fingerBelowLine = y > rect.bottom + 25;
-
-        // Word is on the finger's current line and finger has reached it
         const onSameLine = y >= rect.top - 25 && y <= rect.bottom + 25;
-        const fingerPastWord = x >= rect.left + rect.width * 0.3; // past 30% of the word
+        const fingerPastWord = x >= rect.left + rect.width * 0.3;
 
         if (fingerBelowLine || (onSameLine && fingerPastWord)) {
           const newVisitCount = updated[i].visitCount + 1;
@@ -245,7 +229,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           };
           changed = true;
         } else {
-          break; // sequential: stop at the first word the finger hasn't reached
+          break;
         }
       }
 
@@ -255,12 +239,13 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     isPointerDownRef.current = true;
+    swipeActiveRef.current = false; // every new touch starts as not-a-swipe
     startXRef.current = e.clientX;
-    startYRef.current = e.clientY;
   }, []);
 
   const handlePointerUp = useCallback(() => {
     isPointerDownRef.current = false;
+    swipeActiveRef.current = false;
     // Snap finger back to next word position via DOM
     if (fingerRef.current && textBoxRef.current) {
       const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
