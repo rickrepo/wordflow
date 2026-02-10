@@ -271,8 +271,8 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       {/* Full-screen immersive story scene */}
       <StoryScene storyId={story.id} />
 
-      {/* Floating controls */}
-      <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
+      {/* Floating controls - z-index 20 to stay above the main reading area */}
+      <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 20 }}>
         <button
           onClick={onBack}
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.9)', padding: '8px 14px', borderRadius: 9999, border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
@@ -289,7 +289,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       </div>
 
       {/* Progress dots at bottom */}
-      <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, zIndex: 10 }}>
+      <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, zIndex: 20 }}>
         {story.pages.map((_, i) => (
           <div
             key={i}

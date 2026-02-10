@@ -3,7 +3,7 @@
 // Full scene compositions for each story
 // Combines multiple illustrations to create immersive backgrounds
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   TextureFilter,
   Caterpillar,
@@ -29,13 +29,86 @@ interface StorySceneProps {
   className?: string;
 }
 
-// Scene wrapper with common positioning
-const SceneWrapper = ({ children, bgClass }: { children: React.ReactNode; bgClass: string }) => (
-  <div className={`absolute inset-0 overflow-hidden pointer-events-none ${bgClass}`}>
-    <TextureFilter />
-    {children}
-  </div>
-);
+// Tap animation keyframes
+const tapAnimCSS = `
+  @keyframes tap-bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    30% { transform: translateY(-20px) scale(1.15); }
+    50% { transform: translateY(0) scale(1); }
+    70% { transform: translateY(-8px) scale(1.05); }
+  }
+  @keyframes tap-spin {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.1); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+  @keyframes tap-wiggle {
+    0%, 100% { transform: rotate(0) scale(1); }
+    20% { transform: rotate(-12deg) scale(1.15); }
+    40% { transform: rotate(10deg) scale(1.12); }
+    60% { transform: rotate(-5deg) scale(1.05); }
+    80% { transform: rotate(3deg) scale(1.02); }
+  }
+  @keyframes tap-grow {
+    0%, 100% { transform: scale(1); }
+    40% { transform: scale(1.3); }
+    60% { transform: scale(0.9); }
+    80% { transform: scale(1.1); }
+  }
+`;
+
+// Scene wrapper - background elements are tappable with fun animations
+const SceneWrapper = ({ children, bgClass }: { children: React.ReactNode; bgClass: string }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Enable pointer events on positioned scene elements (skip full-screen overlays)
+    Array.from(container.children).forEach(child => {
+      if (!(child instanceof HTMLDivElement)) return;
+      const cls = child.className || '';
+      if (cls.includes('inset-0')) return;
+      child.style.pointerEvents = 'auto';
+      child.style.cursor = 'pointer';
+    });
+
+    // Animate the tapped element
+    const handleClick = (e: MouseEvent) => {
+      let el = e.target as HTMLElement | null;
+      while (el && el !== container) {
+        if (el.parentElement === container && el instanceof HTMLDivElement) {
+          el.style.animation = 'none';
+          void el.offsetHeight; // force reflow
+          const anims = [
+            'tap-bounce 0.5s ease-out',
+            'tap-spin 0.5s ease-in-out',
+            'tap-wiggle 0.5s ease-out',
+            'tap-grow 0.4s ease-out',
+          ];
+          el.style.animation = anims[Math.floor(Math.random() * anims.length)];
+          el.addEventListener('animationend', () => {
+            el!.style.animation = ''; // restore CSS class animation
+          }, { once: true });
+          return;
+        }
+        el = el.parentElement;
+      }
+    };
+
+    container.addEventListener('click', handleClick);
+    return () => container.removeEventListener('click', handleClick);
+  }, []);
+
+  return (
+    <div ref={containerRef} className={`absolute inset-0 overflow-hidden pointer-events-none ${bgClass}`}>
+      <TextureFilter />
+      {children}
+      <style dangerouslySetInnerHTML={{ __html: tapAnimCSS }} />
+    </div>
+  );
+};
 
 // Individual scene compositions
 const CatScene = () => (
