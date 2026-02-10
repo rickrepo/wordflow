@@ -158,14 +158,15 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     line.wordIndices.includes(nextWordIndex)
   );
 
-  // Pointer handler - works for both mouse and touch with touch-action: none
-  // Uses refs + direct DOM manipulation for the finger to avoid re-renders on every move
+  // Pointer handler - position-based word completion
+  // Instead of hitbox detection (which misses words on fast swipes and has overlap issues),
+  // we check: has the finger swept past each word's position, in order?
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
     if (!isPointerDownRef.current) return; // only track when finger is down
 
     const x = e.clientX;
-    const y = e.clientY - 15; // gentle offset for finger coverage
+    const y = e.clientY - 10; // very gentle offset for finger coverage
 
     // Track cumulative rightward swipe distance
     const dx = x - prevClientXRef.current;
@@ -197,42 +198,49 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       }
     }
 
-    // Find which word the pointer is over
-    let foundIndex: number | null = null;
-    wordRefs.current.forEach((ref, index) => {
-      if (!ref) return;
-      const rect = ref.getBoundingClientRect();
-      if (x >= rect.left - 10 && x <= rect.right + 10 &&
-          y >= rect.top - 20 && y <= rect.bottom + 20) {
-        foundIndex = index;
+    // Require 12px of rightward movement before activating (prevents accidental taps).
+    // Once met, stays active for the entire touch — no per-word reset.
+    if (swipeDistRef.current < 12) return;
+
+    if (!hasStartedReading) setHasStartedReading(true);
+
+    // Position-based completion: complete all sequential words the finger has swept past.
+    // This handles fast swipes (no words skipped) and avoids hitbox overlap bugs.
+    setWordStates(prev => {
+      let changed = false;
+      const updated = prev.map(ws => ({ ...ws }));
+
+      for (let i = 0; i < updated.length; i++) {
+        if (updated[i].isCompleted) continue;
+
+        const ref = wordRefs.current[i];
+        if (!ref) break; // stop if we can't measure
+
+        const rect = ref.getBoundingClientRect();
+
+        // Word is on a line the finger has already passed (finger is well below it)
+        const fingerBelowLine = y > rect.bottom + 25;
+
+        // Word is on the finger's current line and finger has reached it
+        const onSameLine = y >= rect.top - 25 && y <= rect.bottom + 25;
+        const fingerPastWord = x >= rect.left + rect.width * 0.3; // past 30% of the word
+
+        if (fingerBelowLine || (onSameLine && fingerPastWord)) {
+          const newVisitCount = updated[i].visitCount + 1;
+          updated[i] = {
+            ...updated[i],
+            isCompleted: true,
+            visitCount: newVisitCount,
+            isStruggling: newVisitCount >= STRUGGLE_THRESHOLD,
+          };
+          changed = true;
+        } else {
+          break; // sequential: stop at the first word the finger hasn't reached
+        }
       }
+
+      return changed ? updated : prev;
     });
-
-    // Strict sequential: only the next unread word can be completed
-    const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
-
-    if (foundIndex !== null) {
-      if (!hasStartedReading) setHasStartedReading(true);
-
-      // Only complete if it's the next word in sequence AND finger has actually swiped
-      // Require 12px of cumulative rightward movement to prevent accidental taps
-      if (foundIndex === nextToRead && swipeDistRef.current >= 12) {
-        setWordStates(prev => prev.map((ws, i) => {
-          if (i === foundIndex) {
-            const newVisitCount = ws.visitCount + 1;
-            return {
-              ...ws,
-              isCompleted: true,
-              visitCount: newVisitCount,
-              isStruggling: newVisitCount >= STRUGGLE_THRESHOLD,
-            };
-          }
-          return ws;
-        }));
-        // Reset swipe distance after completing a word so next word also needs a swipe
-        swipeDistRef.current = 0;
-      }
-    }
   }, [showHelp, showPageTransition, pageComplete, wordStates, hasStartedReading, textLines, activeLineIndex]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
