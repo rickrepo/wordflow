@@ -46,6 +46,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [textLines, setTextLines] = useState<TextLine[]>([]);
   const [hasStartedReading, setHasStartedReading] = useState(false);
   const [pointerXOnLine, setPointerXOnLine] = useState<number | null>(null); // relative to textBox left
+  const [isPointerDown, setIsPointerDown] = useState(false); // tracks if finger/mouse is actively on the reading area
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const textBoxRef = useRef<HTMLDivElement>(null);
@@ -211,6 +212,14 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates, hasStartedReading]);
 
+  const handlePointerDown = useCallback(() => {
+    setIsPointerDown(true);
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    setIsPointerDown(false);
+  }, []);
+
   // Word tap for help
   const handleWordTap = (index: number) => {
     const ws = wordStates[index];
@@ -234,6 +243,9 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
       className="min-h-screen flex flex-col relative overflow-hidden"
       style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' } as React.CSSProperties}
     >
@@ -367,23 +379,25 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                       boxShadow: active ? '0 0 8px rgba(59,130,246,0.4)' : 'none',
                     }}
                   />
-                  {/* Finger indicator: animated hint when not started, follows pointer when swiping */}
-                  {active && !pageComplete && (
-                    hasStartedReading && pointerXOnLine !== null ? (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: -10,
-                          left: Math.max(0, Math.min(pointerXOnLine - line.left + 4, lineWidth - 28)),
-                          fontSize: 28,
-                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
-                          transition: 'left 0.05s linear',
-                          pointerEvents: 'none',
-                        }}
-                      >
-                        👆
-                      </div>
-                    ) : !hasStartedReading && (
+                  {/* Finger indicator: always visible on active line */}
+                  {active && !pageComplete && (() => {
+                    // Compute where the next word on this line is
+                    const nextWordOnLine = line.wordIndices.find(idx => !wordStates[idx]?.isCompleted);
+                    let defaultX = 0; // default to start of line
+                    if (nextWordOnLine !== undefined && wordRefs.current[nextWordOnLine] && textBoxRef.current) {
+                      const wordRect = wordRefs.current[nextWordOnLine]!.getBoundingClientRect();
+                      const boxRect = textBoxRef.current.getBoundingClientRect();
+                      defaultX = wordRect.left - boxRect.left - line.left + 4;
+                    }
+
+                    // While user is swiping, follow pointer; otherwise park at next word
+                    const fingerX = isPointerDown && hasStartedReading && pointerXOnLine !== null
+                      ? pointerXOnLine - line.left + 4
+                      : defaultX;
+
+                    const clampedX = Math.max(0, Math.min(fingerX, lineWidth - 28));
+
+                    return !hasStartedReading ? (
                       <div
                         className="hand-guide"
                         style={{
@@ -396,8 +410,22 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                       >
                         👆
                       </div>
-                    )
-                  )}
+                    ) : (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: -10,
+                          left: clampedX,
+                          fontSize: 28,
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                          transition: isPointerDown ? 'left 0.05s linear' : 'left 0.2s ease-out',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        👆
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
