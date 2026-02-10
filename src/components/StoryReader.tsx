@@ -18,7 +18,6 @@ interface WordState {
   cleanWord: string;
   punctuation: string;
   index: number;
-  isActive: boolean;
   isCompleted: boolean;
   visitCount: number;
   isStruggling: boolean;
@@ -37,7 +36,6 @@ const STRUGGLE_THRESHOLD = 3;
 export default function StoryReader({ story, gradeLevel, onBack, onComplete }: StoryReaderProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const [wordStates, setWordStates] = useState<WordState[]>([]);
-  const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState<string | null>(null);
   const [pageComplete, setPageComplete] = useState(false);
   const [showPageTransition, setShowPageTransition] = useState(false);
@@ -45,8 +43,9 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [textLines, setTextLines] = useState<TextLine[]>([]);
   const [hasStartedReading, setHasStartedReading] = useState(false);
-  const [pointerXOnLine, setPointerXOnLine] = useState<number | null>(null); // relative to textBox left
-  const [isPointerDown, setIsPointerDown] = useState(false); // tracks if finger/mouse is actively on the reading area
+  const pointerXRef = useRef<number | null>(null);
+  const isPointerDownRef = useRef(false);
+  const fingerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const textBoxRef = useRef<HTMLDivElement>(null);
@@ -68,12 +67,10 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       cleanWord: word.replace(/[^a-zA-Z]/g, ''),
       punctuation: word.replace(/[a-zA-Z]/g, ''),
       index,
-      isActive: false,
       isCompleted: false,
       visitCount: 0,
       isStruggling: false,
     })));
-    setActiveWordIndex(null);
     setPageComplete(false);
     setTextLines([]);
     setHasStartedReading(false);
@@ -152,17 +149,37 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     }
   }, [wordStates, pageComplete, progress, isLastPage, onComplete]);
 
+  const nextWordIndex = wordStates.findIndex(ws => !ws.isCompleted);
+
+  // Figure out which line is "active" (has the next word to read)
+  const activeLineIndex = textLines.findIndex(line =>
+    line.wordIndices.includes(nextWordIndex)
+  );
+
   // Pointer handler - works for both mouse and touch with touch-action: none
+  // Uses refs + direct DOM manipulation for the finger to avoid re-renders on every move
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current || showHelp || showPageTransition || pageComplete) return;
 
     const x = e.clientX;
     const y = e.clientY - 50;
 
-    // Track pointer X position relative to textBox for the finger indicator
+    // Track pointer X with ref (no re-render) and update finger position via DOM
     if (textBoxRef.current) {
       const boxRect = textBoxRef.current.getBoundingClientRect();
-      setPointerXOnLine(x - boxRect.left);
+      pointerXRef.current = x - boxRect.left;
+
+      // Directly update finger position for smooth tracking (bypasses React render)
+      if (fingerRef.current && isPointerDownRef.current && hasStartedReading) {
+        const activeLine = textLines[activeLineIndex];
+        if (activeLine) {
+          const lineWidth = activeLine.right - activeLine.left + 8;
+          const fingerX = pointerXRef.current - activeLine.left + 4;
+          const clampedX = Math.max(0, Math.min(fingerX, lineWidth - 28));
+          fingerRef.current.style.left = `${clampedX}px`;
+          fingerRef.current.style.transition = 'left 0.05s linear';
+        }
+      }
     }
 
     // Find which word the pointer is over
@@ -182,43 +199,45 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     if (foundIndex !== null) {
       if (!hasStartedReading) setHasStartedReading(true);
 
-      // Only activate and complete if it's the next word in sequence
+      // Only complete if it's the next word in sequence (no state updates for wrong words)
       if (foundIndex === nextToRead) {
-        setActiveWordIndex(foundIndex);
         setWordStates(prev => prev.map((ws, i) => {
           if (i === foundIndex) {
             const newVisitCount = ws.visitCount + 1;
             return {
               ...ws,
-              isActive: true,
               isCompleted: true,
               visitCount: newVisitCount,
               isStruggling: newVisitCount >= STRUGGLE_THRESHOLD,
             };
           }
-          return { ...ws, isActive: false };
+          return ws;
         }));
-      } else if (foundIndex !== activeWordIndex) {
-        // Swiped over a word that's not next - just show it's active but don't complete
-        setActiveWordIndex(foundIndex);
-        setWordStates(prev => prev.map((ws, i) => ({
-          ...ws,
-          isActive: i === foundIndex,
-        })));
       }
-    } else if (activeWordIndex !== null) {
-      setActiveWordIndex(null);
-      setWordStates(prev => prev.map(ws => ({ ...ws, isActive: false })));
     }
-  }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates, hasStartedReading]);
+  }, [showHelp, showPageTransition, pageComplete, wordStates, hasStartedReading, textLines, activeLineIndex]);
 
   const handlePointerDown = useCallback(() => {
-    setIsPointerDown(true);
+    isPointerDownRef.current = true;
   }, []);
 
   const handlePointerUp = useCallback(() => {
-    setIsPointerDown(false);
-  }, []);
+    isPointerDownRef.current = false;
+    // Snap finger back to next word position via DOM
+    if (fingerRef.current && textBoxRef.current) {
+      const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
+      const activeLine = textLines.find(line => line.wordIndices.includes(nextIdx));
+      if (activeLine && nextIdx >= 0 && wordRefs.current[nextIdx]) {
+        const wordRect = wordRefs.current[nextIdx]!.getBoundingClientRect();
+        const boxRect = textBoxRef.current.getBoundingClientRect();
+        const defaultX = wordRect.left - boxRect.left - activeLine.left + 4;
+        const lineWidth = activeLine.right - activeLine.left + 8;
+        const clampedX = Math.max(0, Math.min(defaultX, lineWidth - 28));
+        fingerRef.current.style.left = `${clampedX}px`;
+        fingerRef.current.style.transition = 'left 0.2s ease-out';
+      }
+    }
+  }, [wordStates, textLines]);
 
   // Word tap for help
   const handleWordTap = (index: number) => {
@@ -227,13 +246,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       setShowHelp(ws.cleanWord);
     }
   };
-
-  const nextWordIndex = wordStates.findIndex(ws => !ws.isCompleted);
-
-  // Figure out which line is "active" (has the next word to read)
-  const activeLineIndex = textLines.findIndex(line =>
-    line.wordIndices.includes(nextWordIndex)
-  );
 
   // Check if all words on a line are completed
   const isLineCompleted = (line: TextLine) =>
@@ -309,33 +321,24 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                 const wordStyle: React.CSSProperties = {
                   display: 'inline',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease-out',
+                  transition: 'color 0.15s ease-out, background 0.15s ease-out',
                   position: 'relative',
                   borderRadius: 4,
                   padding: '2px 4px',
                 };
 
-                if (ws.isActive && (ws.isCompleted || isNextWord)) {
-                  // Active on the correct next word - blue highlight
-                  wordStyle.background = '#3B82F6';
-                  wordStyle.color = 'white';
-                  wordStyle.borderRadius = 6;
-                  wordStyle.boxShadow = '0 2px 8px rgba(59,130,246,0.4)';
-                } else if (ws.isActive && !ws.isCompleted) {
-                  // Finger is on wrong word (not next) - subtle red hint
-                  wordStyle.background = 'rgba(239,68,68,0.15)';
-                  wordStyle.color = '#9CA3AF';
-                  wordStyle.borderRadius = 6;
-                } else if (ws.isCompleted) {
+                if (ws.isCompleted) {
+                  // Done - dark text
                   wordStyle.color = '#1F2937';
                 } else if (isNextWord) {
-                  // Next word to read - bold with bright yellow background
+                  // Next word to read - bold with yellow highlight
                   wordStyle.color = '#1F2937';
                   wordStyle.fontWeight = 700;
                   wordStyle.background = 'rgba(253,224,71,0.5)';
                   wordStyle.borderRadius = 6;
                   wordStyle.boxShadow = '0 0 6px rgba(253,224,71,0.4)';
                 } else {
+                  // Unread - gray
                   wordStyle.color = '#9CA3AF';
                 }
 
@@ -347,7 +350,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                       style={wordStyle}
                     >
                       {ws.cleanWord}{ws.punctuation}
-                      {ws.isStruggling && !ws.isActive && (
+                      {ws.isStruggling && (
                         <span style={{ fontSize: '0.6em', verticalAlign: 'super', marginLeft: 2 }}>💡</span>
                       )}
                     </span>
@@ -383,19 +386,14 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                   {active && !pageComplete && (() => {
                     // Compute where the next word on this line is
                     const nextWordOnLine = line.wordIndices.find(idx => !wordStates[idx]?.isCompleted);
-                    let defaultX = 0; // default to start of line
+                    let defaultX = 0;
                     if (nextWordOnLine !== undefined && wordRefs.current[nextWordOnLine] && textBoxRef.current) {
                       const wordRect = wordRefs.current[nextWordOnLine]!.getBoundingClientRect();
                       const boxRect = textBoxRef.current.getBoundingClientRect();
                       defaultX = wordRect.left - boxRect.left - line.left + 4;
                     }
 
-                    // While user is swiping, follow pointer; otherwise park at next word
-                    const fingerX = isPointerDown && hasStartedReading && pointerXOnLine !== null
-                      ? pointerXOnLine - line.left + 4
-                      : defaultX;
-
-                    const clampedX = Math.max(0, Math.min(fingerX, lineWidth - 28));
+                    const clampedX = Math.max(0, Math.min(defaultX, lineWidth - 28));
 
                     return !hasStartedReading ? (
                       <div
@@ -412,13 +410,14 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                       </div>
                     ) : (
                       <div
+                        ref={fingerRef}
                         style={{
                           position: 'absolute',
                           top: -10,
                           left: clampedX,
                           fontSize: 28,
                           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
-                          transition: isPointerDown ? 'left 0.05s linear' : 'left 0.2s ease-out',
+                          transition: 'left 0.2s ease-out',
                           pointerEvents: 'none',
                         }}
                       >
