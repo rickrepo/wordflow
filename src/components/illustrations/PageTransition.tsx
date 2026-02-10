@@ -13,21 +13,15 @@ type TransitionType =
   | 'monster-grab'
   | 'cat-swipe'
   | 'dog-shake'
-  | 'tornado-spin'
-  | 'rocket-crash'
-  | 'giant-tongue'
-  | 'ninja-slice';
+  | 'giant-tongue';
 
-// Pool of crazy transitions
+// Kid-friendly animal transitions only
 const transitionPool: TransitionType[] = [
   'dinosaur-bite',
   'monster-grab',
   'cat-swipe',
   'dog-shake',
-  'tornado-spin',
-  'rocket-crash',
   'giant-tongue',
-  'ninja-slice',
 ];
 
 // Generate confetti particles
@@ -60,15 +54,12 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
       const timer = setTimeout(() => {
         setIsAnimating(false);
         onComplete();
-      }, 2200);
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, [show, onComplete]);
 
   if (!show || !isAnimating) return null;
-
-  const encouragements = ['CHOMP!', 'WOOSH!', 'SWOOSH!', 'CRASH!', 'ZOOM!', 'POW!', 'WHOA!', 'WOW!'];
-  const encouragement = encouragements[Math.floor(Math.random() * encouragements.length)];
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden pointer-events-none">
@@ -268,74 +259,6 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
         </>
       )}
 
-      {/* TORNADO SPIN - Small tornado that spins through */}
-      {transition === 'tornado-spin' && (
-        <>
-          <div className="absolute animate-tornado-sweep drop-shadow-xl">
-            <svg width="200" height="350" viewBox="0 0 200 350">
-              {/* Tornado funnel - semi transparent */}
-              <defs>
-                <linearGradient id="tornadoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(74, 85, 104, 0.5)" />
-                  <stop offset="50%" stopColor="rgba(113, 128, 150, 0.6)" />
-                  <stop offset="100%" stopColor="rgba(74, 85, 104, 0.5)" />
-                </linearGradient>
-              </defs>
-              <path d="M100,0 Q30,70 50,140 Q10,210 60,280 Q30,320 100,350 Q170,320 140,280 Q190,210 150,140 Q170,70 100,0"
-                    fill="url(#tornadoGradient)" className="animate-tornado-spin" />
-              {/* Debris swirling */}
-              <text x="60" y="100" className="animate-debris-spin text-2xl">📚</text>
-              <text x="120" y="180" className="animate-debris-spin text-xl" style={{ animationDelay: '0.2s' }}>✏️</text>
-              <text x="80" y="260" className="animate-debris-spin text-2xl" style={{ animationDelay: '0.4s' }}>📖</text>
-            </svg>
-          </div>
-        </>
-      )}
-
-      {/* ROCKET CRASH - Rocket zooms through the scene */}
-      {transition === 'rocket-crash' && (
-        <>
-          {/* Smoke trail */}
-          <div className="absolute top-0 left-1/2 w-20 h-full animate-smoke-trail">
-            <div className="w-full h-full bg-gradient-to-b from-gray-300/50 via-gray-200/30 to-transparent blur-md" />
-          </div>
-          <div className="absolute -top-40 left-1/2 -translate-x-1/2 animate-rocket-crash-in drop-shadow-2xl">
-            <svg width="120" height="200" viewBox="0 0 120 200">
-              {/* Rocket body */}
-              <ellipse cx="60" cy="100" rx="30" ry="70" fill="#E74C3C" />
-              <ellipse cx="60" cy="100" rx="22" ry="60" fill="#C0392B" />
-              {/* Nose */}
-              <polygon points="60,20 40,70 80,70" fill="#3498DB" />
-              {/* Window */}
-              <circle cx="60" cy="85" r="15" fill="#85C1E9" />
-              <circle cx="55" cy="80" r="5" fill="white" opacity="0.5" />
-              {/* Fins */}
-              <polygon points="30,140 10,180 40,160" fill="#2ECC71" />
-              <polygon points="90,140 110,180 80,160" fill="#2ECC71" />
-              {/* Flames */}
-              <g className="animate-flames-intense">
-                <ellipse cx="60" cy="175" rx="20" ry="30" fill="#F39C12" />
-                <ellipse cx="60" cy="185" rx="15" ry="25" fill="#E74C3C" />
-                <ellipse cx="60" cy="190" rx="8" ry="15" fill="#F1C40F" />
-              </g>
-            </svg>
-          </div>
-          {/* Sparkle trail */}
-          {confetti.slice(0, 10).map((c) => (
-            <div
-              key={c.id}
-              className="absolute animate-sparkle-trail"
-              style={{
-                left: `calc(50% + ${(Math.random() - 0.5) * 60}px)`,
-                top: `${30 + c.id * 5}%`,
-                animationDelay: `${0.3 + c.delay}s`,
-              }}
-            >
-              <span className="text-xl">✨</span>
-            </div>
-          ))}
-        </>
-      )}
 
       {/* GIANT TONGUE - Frog peeks up and tongue zaps out */}
       {transition === 'giant-tongue' && (
@@ -367,359 +290,132 @@ export default function PageTransition({ show, storyId, onComplete }: PageTransi
         </>
       )}
 
-      {/* NINJA SLICE - Katana slices through quickly */}
-      {transition === 'ninja-slice' && (
-        <>
-          {/* Slash effect lines */}
-          <div className="absolute inset-0 animate-slash-lines pointer-events-none">
-            <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-              <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.9)" strokeWidth="0.5" className="animate-slash-glow" />
-            </svg>
-          </div>
-          <div className="absolute -left-40 top-1/2 -translate-y-1/2 animate-ninja-slice drop-shadow-2xl">
-            <svg width="400" height="60" viewBox="0 0 400 60">
-              {/* Blade with gleam */}
-              <polygon points="0,30 350,25 380,30 350,35" fill="#D0D0D0" />
-              <line x1="0" y1="30" x2="350" y2="30" stroke="white" strokeWidth="3" opacity="0.8" />
-              <line x1="50" y1="28" x2="200" y2="28" stroke="white" strokeWidth="1" opacity="0.5" />
-              {/* Handle */}
-              <rect x="380" y="20" width="60" height="20" fill="#2a2a2a" rx="3" />
-              <rect x="390" y="22" width="5" height="16" fill="#FFD700" />
-              <rect x="400" y="22" width="5" height="16" fill="#FFD700" />
-              {/* Motion blur effect */}
-              <rect x="0" y="28" width="350" height="4" fill="rgba(255,255,255,0.3)" className="animate-blade-blur" />
-            </svg>
-          </div>
-          {/* Slash sparks */}
-          {confetti.slice(0, 12).map((c) => (
-            <div
-              key={c.id}
-              className="absolute animate-spark-fly"
-              style={{
-                left: `${10 + c.id * 7}%`,
-                top: '50%',
-                '--end-x': `${(Math.random() - 0.5) * 100}px`,
-                '--end-y': `${(Math.random() - 0.5) * 150}px`,
-                animationDelay: `${0.15 + c.delay * 0.3}s`,
-              } as React.CSSProperties}
-            >
-              <div className="w-2 h-2 bg-yellow-300 rounded-full shadow-lg shadow-yellow-400" />
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* Sound effect text - always visible but with text shadow for readability */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 animate-sound-effect">
-        <p className="text-7xl font-black comic-text">
-          {encouragement}
-        </p>
-      </div>
 
       <style jsx>{`
-        .comic-text {
-          font-family: 'Comic Sans MS', cursive;
-          color: white;
-          text-shadow:
-            -3px -3px 0 #333,
-            3px -3px 0 #333,
-            -3px 3px 0 #333,
-            3px 3px 0 #333,
-            0 0 20px rgba(0,0,0,0.5);
-        }
-
         @keyframes flash-dim {
           0% { opacity: 0; }
           10% { opacity: 1; }
-          90% { opacity: 1; }
+          85% { opacity: 1; }
           100% { opacity: 0; }
         }
-        .animate-flash-dim {
-          animation: flash-dim 2.2s ease-out forwards;
-        }
+        .animate-flash-dim { animation: flash-dim 1.5s ease-out forwards; }
 
         @keyframes dino-chomp {
           0% { transform: translateX(0); }
-          20% { transform: translateX(-250px); }
-          30% { transform: translateX(-250px) rotate(-10deg); }
-          40% { transform: translateX(-250px) rotate(5deg); }
-          50% { transform: translateX(-250px) rotate(-5deg); }
-          70% { transform: translateX(-250px); }
+          25% { transform: translateX(-250px); }
+          35% { transform: translateX(-250px) rotate(-8deg); }
+          45% { transform: translateX(-250px) rotate(5deg); }
+          65% { transform: translateX(-250px); }
           100% { transform: translateX(100px); }
         }
-        .animate-dino-chomp {
-          animation: dino-chomp 2s ease-in-out forwards;
-        }
+        .animate-dino-chomp { animation: dino-chomp 1.4s ease-in-out forwards; }
 
         @keyframes bite-reveal {
-          0%, 40% { opacity: 0; }
-          50% { opacity: 1; }
+          0%, 30% { opacity: 0; }
+          40% { opacity: 1; }
           100% { opacity: 1; }
         }
-        .animate-bite-reveal {
-          animation: bite-reveal 2s ease-out forwards;
-        }
+        .animate-bite-reveal { animation: bite-reveal 1.4s ease-out forwards; }
 
         @keyframes jaw {
           0%, 25%, 50%, 75%, 100% { transform: translateY(0); }
           12%, 37%, 62% { transform: translateY(15px); }
         }
-        .animate-jaw {
-          animation: jaw 0.6s ease-in-out infinite;
-        }
+        .animate-jaw { animation: jaw 0.6s ease-in-out infinite; }
 
         @keyframes crumb-fly {
           0% { transform: translate(0, 0) scale(1); opacity: 1; }
           100% { transform: translate(var(--end-x), var(--end-y)) scale(0.5); opacity: 0; }
         }
-        .animate-crumb-fly {
-          animation: crumb-fly 1s ease-out forwards;
-        }
+        .animate-crumb-fly { animation: crumb-fly 0.8s ease-out forwards; }
 
         @keyframes monster-grab {
           0% { transform: translateX(-50%) translateY(100%); }
-          30% { transform: translateX(-50%) translateY(20%); }
-          50% { transform: translateX(-50%) translateY(0); }
+          35% { transform: translateX(-50%) translateY(20%); }
+          55% { transform: translateX(-50%) translateY(0); }
           100% { transform: translateX(-50%) translateY(150%); }
         }
-        .animate-monster-grab {
-          animation: monster-grab 2s ease-in-out forwards;
-        }
+        .animate-monster-grab { animation: monster-grab 1.4s ease-in-out forwards; }
 
         @keyframes finger-curl {
           0%, 30% { transform: rotate(0); }
           50% { transform: rotate(30deg); }
           100% { transform: rotate(30deg); }
         }
-        .animate-finger-curl {
-          animation: finger-curl 1.5s ease-in-out forwards;
-        }
+        .animate-finger-curl { animation: finger-curl 1s ease-in-out forwards; }
 
         @keyframes scratch-line {
           0% { stroke-dashoffset: 200; opacity: 0; }
           30% { opacity: 1; }
           100% { stroke-dashoffset: 0; opacity: 0.3; }
         }
-        .animate-scratch-line {
-          stroke-dasharray: 200;
-          animation: scratch-line 0.8s ease-out forwards;
-        }
+        .animate-scratch-line { stroke-dasharray: 200; animation: scratch-line 0.6s ease-out forwards; }
 
         @keyframes scratch-marks {
           0% { opacity: 0; }
           30% { opacity: 1; }
           100% { opacity: 0; }
         }
-        .animate-scratch-marks {
-          animation: scratch-marks 2s ease-out forwards;
-        }
+        .animate-scratch-marks { animation: scratch-marks 1.4s ease-out forwards; }
 
         @keyframes cat-swipe {
           0% { transform: translateX(0); }
-          30% { transform: translateX(calc(100vw + 100px)); }
+          40% { transform: translateX(calc(100vw + 100px)); }
           100% { transform: translateX(calc(100vw + 200px)); }
         }
-        .animate-cat-swipe {
-          animation: cat-swipe 1s ease-out forwards;
-        }
+        .animate-cat-swipe { animation: cat-swipe 0.8s ease-out forwards; }
 
         @keyframes fly-off-screen {
           0% { transform: translateX(0) rotate(0); opacity: 1; }
           100% { transform: translateX(300px) translateY(-150px) rotate(540deg); opacity: 0; }
         }
-        .animate-fly-off-screen {
-          animation: fly-off-screen 1s ease-out forwards;
-        }
+        .animate-fly-off-screen { animation: fly-off-screen 0.8s ease-out forwards; }
 
         @keyframes dog-head-shake {
           0%, 100% { transform: translateX(-50%) rotate(0); }
-          10% { transform: translateX(-50%) rotate(20deg); }
-          20% { transform: translateX(-50%) rotate(-20deg); }
-          30% { transform: translateX(-50%) rotate(15deg); }
-          40% { transform: translateX(-50%) rotate(-15deg); }
-          50% { transform: translateX(-50%) rotate(10deg); }
-          60% { transform: translateX(-50%) rotate(-10deg); }
-          70% { transform: translateX(-50%) rotate(5deg); }
-          80% { transform: translateX(-50%) rotate(-5deg); }
+          12% { transform: translateX(-50%) rotate(18deg); }
+          25% { transform: translateX(-50%) rotate(-18deg); }
+          37% { transform: translateX(-50%) rotate(12deg); }
+          50% { transform: translateX(-50%) rotate(-12deg); }
+          62% { transform: translateX(-50%) rotate(6deg); }
+          75% { transform: translateX(-50%) rotate(-6deg); }
         }
-        .animate-dog-head-shake {
-          animation: dog-head-shake 1.5s ease-in-out forwards;
-        }
+        .animate-dog-head-shake { animation: dog-head-shake 1.2s ease-in-out forwards; }
 
         @keyframes ear-flop {
           0%, 100% { transform: rotate(0); }
           50% { transform: rotate(30deg); }
         }
-        .animate-ear-flop {
-          animation: ear-flop 0.15s ease-in-out infinite;
-          transform-origin: bottom center;
-        }
+        .animate-ear-flop { animation: ear-flop 0.15s ease-in-out infinite; transform-origin: bottom center; }
 
         @keyframes tongue-wag {
           0%, 100% { transform: translateX(0); }
           50% { transform: translateX(10px); }
         }
-        .animate-tongue-wag {
-          animation: tongue-wag 0.1s ease-in-out infinite;
-        }
+        .animate-tongue-wag { animation: tongue-wag 0.1s ease-in-out infinite; }
 
         @keyframes drip-fall {
           0% { transform: translateY(0) scale(1); opacity: 1; }
           100% { transform: translateY(200px) scale(0.5); opacity: 0; }
         }
-        .animate-drip-fall {
-          animation: drip-fall 1s ease-in forwards;
-        }
-
-        @keyframes tornado-sweep {
-          0% { left: -200px; top: 20%; }
-          50% { left: 50%; top: 50%; transform: translateX(-50%); }
-          100% { left: calc(100% + 200px); top: 30%; }
-        }
-        .animate-tornado-sweep {
-          animation: tornado-sweep 2s ease-in-out forwards;
-        }
-
-        @keyframes tornado-spin {
-          from { transform: rotate(0) scaleX(1); }
-          50% { transform: rotate(180deg) scaleX(0.9); }
-          to { transform: rotate(360deg) scaleX(1); }
-        }
-        .animate-tornado-spin {
-          animation: tornado-spin 0.3s linear infinite;
-          transform-origin: center center;
-        }
-
-        @keyframes debris-spin {
-          from { transform: rotate(0) translateX(20px); }
-          to { transform: rotate(360deg) translateX(20px); }
-        }
-        .animate-debris-spin {
-          animation: debris-spin 0.4s linear infinite;
-          transform-origin: -20px center;
-        }
-
-        @keyframes rocket-crash-in {
-          0% { transform: translateX(-50%) translateY(0) rotate(180deg); }
-          60% { transform: translateX(-50%) translateY(calc(100vh + 100px)) rotate(180deg); }
-          100% { transform: translateX(-50%) translateY(calc(100vh + 200px)) rotate(180deg); }
-        }
-        .animate-rocket-crash-in {
-          animation: rocket-crash-in 1.2s ease-in forwards;
-        }
-
-        @keyframes smoke-trail {
-          0% { opacity: 0; transform: translateX(-50%) scaleY(0); }
-          20% { opacity: 0.5; transform: translateX(-50%) scaleY(1); }
-          100% { opacity: 0; transform: translateX(-50%) scaleY(1); }
-        }
-        .animate-smoke-trail {
-          animation: smoke-trail 1.5s ease-out forwards;
-          transform-origin: top center;
-        }
-
-        @keyframes sparkle-trail {
-          0% { transform: scale(1); opacity: 1; }
-          100% { transform: scale(0); opacity: 0; }
-        }
-        .animate-sparkle-trail {
-          animation: sparkle-trail 0.8s ease-out forwards;
-        }
-
-        @keyframes flames-intense {
-          0%, 100% { transform: scaleY(1) scaleX(1); }
-          25% { transform: scaleY(1.3) scaleX(0.9); }
-          50% { transform: scaleY(0.9) scaleX(1.1); }
-          75% { transform: scaleY(1.2) scaleX(0.95); }
-        }
-        .animate-flames-intense {
-          animation: flames-intense 0.1s ease-in-out infinite;
-          transform-origin: center top;
-        }
+        .animate-drip-fall { animation: drip-fall 0.8s ease-in forwards; }
 
         @keyframes frog-appear {
           0% { transform: translateX(-50%) translateY(100%); }
           30% { transform: translateX(-50%) translateY(0); }
-          80% { transform: translateX(-50%) translateY(0); }
+          75% { transform: translateX(-50%) translateY(0); }
           100% { transform: translateX(-50%) translateY(100%); }
         }
-        .animate-frog-appear {
-          animation: frog-appear 2s ease-out forwards;
-        }
+        .animate-frog-appear { animation: frog-appear 1.4s ease-out forwards; }
 
         @keyframes tongue-extend {
           0% { transform: scaleY(0); }
           20% { transform: scaleY(1); }
           30% { transform: scaleY(1.1); }
-          40% { transform: scaleY(0.95); }
-          60% { transform: scaleY(1); }
-          80% { transform: scaleY(1); }
+          70% { transform: scaleY(1); }
           100% { transform: scaleY(0); }
         }
-        .animate-tongue-extend {
-          animation: tongue-extend 2s ease-in-out forwards;
-        }
-
-        @keyframes ninja-slice {
-          0% { transform: translateY(-50%) translateX(0); }
-          25% { transform: translateY(-50%) translateX(calc(100vw + 200px)); }
-          100% { transform: translateY(-50%) translateX(calc(100vw + 400px)); }
-        }
-        .animate-ninja-slice {
-          animation: ninja-slice 0.5s ease-out forwards;
-        }
-
-        @keyframes slash-glow {
-          0% { stroke-width: 0; opacity: 0; }
-          30% { stroke-width: 3; opacity: 1; }
-          100% { stroke-width: 0; opacity: 0; }
-        }
-        .animate-slash-glow {
-          animation: slash-glow 0.6s ease-out forwards;
-          animation-delay: 0.2s;
-        }
-
-        @keyframes slash-lines {
-          0% { opacity: 0; }
-          25% { opacity: 1; }
-          50% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        .animate-slash-lines {
-          animation: slash-lines 0.8s ease-out forwards;
-        }
-
-        @keyframes blade-blur {
-          0% { opacity: 0; transform: translateX(-100%); }
-          50% { opacity: 0.5; }
-          100% { opacity: 0; transform: translateX(100%); }
-        }
-        .animate-blade-blur {
-          animation: blade-blur 0.3s ease-out forwards;
-        }
-
-        @keyframes spark-fly {
-          0% { transform: translate(0, 0) scale(1); opacity: 1; }
-          100% {
-            transform: translate(var(--end-x), var(--end-y)) scale(0);
-            opacity: 0;
-          }
-        }
-        .animate-spark-fly {
-          animation: spark-fly 0.6s ease-out forwards;
-        }
-
-        @keyframes sound-effect {
-          0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
-          20% { transform: translate(-50%, -50%) scale(1.3) rotate(5deg); opacity: 1; }
-          40% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
-          70% { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); opacity: 1; }
-          100% { transform: translate(-50%, -50%) scale(0) rotate(10deg); opacity: 0; }
-        }
-        .animate-sound-effect {
-          animation: sound-effect 1.5s ease-out forwards;
-          animation-delay: 0.2s;
-        }
+        .animate-tongue-extend { animation: tongue-extend 1.4s ease-in-out forwards; }
       `}</style>
     </div>
   );

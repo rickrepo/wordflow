@@ -45,6 +45,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [showPageTransition, setShowPageTransition] = useState(false);
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [textLines, setTextLines] = useState<TextLine[]>([]);
+  const [hasStartedReading, setHasStartedReading] = useState(false);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const textBoxRef = useRef<HTMLDivElement>(null);
@@ -74,6 +75,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     setActiveWordIndex(null);
     setPageComplete(false);
     setTextLines([]);
+    setHasStartedReading(false);
     wordRefs.current = [];
   }, [pageText, currentPage]);
 
@@ -163,6 +165,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     });
 
     if (foundIndex !== null && foundIndex !== activeWordIndex) {
+      if (!hasStartedReading) setHasStartedReading(true);
       const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
       setActiveWordIndex(foundIndex);
 
@@ -184,7 +187,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       setActiveWordIndex(null);
       setWordStates(prev => prev.map(ws => ({ ...ws, isActive: false })));
     }
-  }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates]);
+  }, [activeWordIndex, showHelp, showPageTransition, pageComplete, wordStates, hasStartedReading]);
 
   // Word tap for help
   const handleWordTap = (index: number) => {
@@ -325,31 +328,40 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
               let lineColor = '#E5E7EB'; // gray for unread
               if (completed) lineColor = '#86EFAC'; // green for done
               else if (active) lineColor = '#3B82F6'; // blue for current
+              const lineWidth = line.right - line.left + 8;
 
               return (
-                <div
-                  key={lineIdx}
-                  style={{
-                    position: 'absolute',
-                    left: line.left - 4,
-                    width: line.right - line.left + 8,
-                    top: line.y + 4,
-                    height: active ? 4 : 3,
-                    borderRadius: 2,
-                    background: lineColor,
-                    transition: 'all 0.3s ease',
-                    boxShadow: active ? '0 0 8px rgba(59,130,246,0.4)' : 'none',
-                    pointerEvents: 'none',
-                  }}
-                />
+                <div key={lineIdx} style={{ position: 'absolute', left: line.left - 4, top: line.y + 4, width: lineWidth, pointerEvents: 'none' }}>
+                  {/* The line itself */}
+                  <div
+                    style={{
+                      width: '100%',
+                      height: active ? 4 : 3,
+                      borderRadius: 2,
+                      background: lineColor,
+                      transition: 'all 0.3s ease',
+                      boxShadow: active ? '0 0 8px rgba(59,130,246,0.4)' : 'none',
+                    }}
+                  />
+                  {/* Animated hand on active line - disappears once child starts reading */}
+                  {active && !hasStartedReading && !pageComplete && (
+                    <div
+                      className="hand-guide"
+                      style={{
+                        position: 'absolute',
+                        top: -8,
+                        left: 0,
+                        fontSize: 28,
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                      }}
+                    >
+                      👆
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
-
-          {/* Instruction */}
-          <p style={{ textAlign: 'center', color: '#6B7280', fontSize: 14, marginTop: 16, background: 'rgba(255,255,255,0.6)', padding: '8px 16px', borderRadius: 9999, display: 'inline-block' }}>
-            Slide your finger under each word from left to right
-          </p>
         </div>
       </main>
 
@@ -398,6 +410,18 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
           </div>
         </div>
       )}
+
+      {/* CSS animation for the hand guide */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes slide-right {
+          0% { transform: translateX(0); opacity: 0.9; }
+          80% { transform: translateX(calc(100% - 28px)); opacity: 0.9; }
+          100% { transform: translateX(0); opacity: 0.5; }
+        }
+        .hand-guide {
+          animation: slide-right 2.5s ease-in-out infinite;
+        }
+      `}} />
 
       {/* Page transition animation */}
       <PageTransition
