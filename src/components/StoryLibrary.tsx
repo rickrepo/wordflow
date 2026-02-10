@@ -10,24 +10,14 @@ interface StoryLibraryProps {
   onBack: () => void;
 }
 
-// Floating animated elements
-function FloatingElement({ emoji, delay, duration, left, size }: { emoji: string; delay: number; duration: number; left: number; size: number }) {
-  return (
-    <div
-      className="absolute animate-float-up pointer-events-none"
-      style={{
-        left: `${left}%`,
-        bottom: '-50px',
-        animationDelay: `${delay}s`,
-        animationDuration: `${duration}s`,
-        fontSize: `${size}px`,
-        opacity: 0.6,
-      }}
-    >
-      {emoji}
-    </div>
-  );
-}
+const floatingElements = [
+  { emoji: '📚', x: 8, y: 12, size: 36, delay: 0 },
+  { emoji: '✨', x: 88, y: 18, size: 28, delay: 0.5 },
+  { emoji: '🌟', x: 12, y: 72, size: 32, delay: 1 },
+  { emoji: '📖', x: 82, y: 68, size: 34, delay: 1.5 },
+  { emoji: '🎈', x: 6, y: 42, size: 30, delay: 2 },
+  { emoji: '🦄', x: 92, y: 42, size: 34, delay: 2.5 },
+];
 
 export default function StoryLibrary({ gradeLevel, onSelectStory, onBack }: StoryLibraryProps) {
   const [progress, setProgress] = useState<GameProgress | null>(null);
@@ -42,82 +32,98 @@ export default function StoryLibrary({ gradeLevel, onSelectStory, onBack }: Stor
   const isCompleted = (storyId: string) =>
     progress?.booksCompleted.includes(storyId) || false;
 
-  // Generate floating elements
-  const floatingEmojis = ['📚', '⭐', '✨', '🎨', '📖', '🌟', '🎉', '💫'];
-  const floaters = Array.from({ length: 12 }, (_, i) => ({
-    emoji: floatingEmojis[i % floatingEmojis.length],
-    delay: Math.random() * 10,
-    duration: 8 + Math.random() * 6,
-    left: Math.random() * 100,
-    size: 20 + Math.random() * 20,
-  }));
+  const completedCount = progress
+    ? progress.booksCompleted.filter(id => stories.some(s => s.id === id)).length
+    : 0;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Animated gradient background */}
-      <div
-        className="absolute inset-0 animate-gradient-shift"
-        style={{
-          background: `linear-gradient(135deg, ${gradeInfo.color}30 0%, #fff5e0 25%, ${gradeInfo.color}20 50%, #e0f7ff 75%, ${gradeInfo.color}30 100%)`,
-          backgroundSize: '400% 400%',
-        }}
-      />
-
-      {/* Floating background elements */}
-      {floaters.map((f, i) => (
-        <FloatingElement key={i} {...f} />
-      ))}
-
-      {/* Decorative shapes */}
-      <div className="absolute top-20 left-10 w-32 h-32 bg-yellow-200/40 rounded-full blur-2xl animate-pulse-slow" />
-      <div className="absolute top-40 right-20 w-24 h-24 bg-pink-200/40 rounded-full blur-2xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
-      <div className="absolute bottom-40 left-1/4 w-40 h-40 bg-blue-200/40 rounded-full blur-2xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
-
-      {/* Header */}
-      <header className="relative z-10 bg-white/80 backdrop-blur-md border-b border-white/50 sticky top-0">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/80 text-gray-500 hover:text-gray-700 hover:bg-white hover:scale-110 transition-all shadow-lg border border-white/50"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <span className="text-3xl animate-bounce-slow">{gradeInfo.name === 'Junior Kindergarten' ? '🐣' : gradeInfo.name === 'Senior Kindergarten' ? '🐥' : gradeInfo.name === 'Grade 1' ? '🦊' : '🦁'}</span>
-              {gradeInfo.name}
-            </h1>
-            <p className="text-gray-500">{stories.length} adventures waiting!</p>
-          </div>
-
-          {progress && (
-            <div className="flex items-center gap-2 bg-gradient-to-r from-amber-100 to-yellow-100 px-4 py-2 rounded-2xl shadow-md border border-amber-200/50">
-              <span className="text-2xl animate-spin-slow">⭐</span>
-              <div className="text-right">
-                <div className="font-bold text-amber-700">{progress.totalStars}</div>
-                <div className="text-xs text-amber-600">stars</div>
-              </div>
-            </div>
-          )}
+    <div className="min-h-screen bg-gradient-to-b from-blue-400 via-purple-300 to-pink-200 relative overflow-hidden">
+      {/* Animated background clouds - same as HomePage */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-10 left-0 animate-cloud-drift-slow">
+          <svg width="200" height="80" viewBox="0 0 200 80" className="opacity-40">
+            <ellipse cx="60" cy="50" rx="50" ry="25" fill="white" />
+            <ellipse cx="100" cy="40" rx="60" ry="30" fill="white" />
+            <ellipse cx="150" cy="50" rx="45" ry="22" fill="white" />
+          </svg>
         </div>
-      </header>
-
-      {/* Hero section */}
-      <div className="relative z-10 text-center py-8 px-4">
-        <h2 className="text-4xl md:text-5xl font-black text-gray-800 mb-2">
-          Pick Your Adventure!
-        </h2>
-        <p className="text-gray-600 text-lg">
-          Tap a book to start reading 📖
-        </p>
+        <div className="absolute top-32 right-0 animate-cloud-drift-slow" style={{ animationDelay: '3s' }}>
+          <svg width="180" height="70" viewBox="0 0 180 70" className="opacity-30">
+            <ellipse cx="50" cy="45" rx="45" ry="22" fill="white" />
+            <ellipse cx="90" cy="35" rx="55" ry="28" fill="white" />
+            <ellipse cx="140" cy="45" rx="40" ry="20" fill="white" />
+          </svg>
+        </div>
       </div>
 
-      {/* Story grid */}
-      <main className="relative z-10 max-w-4xl mx-auto px-4 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Floating animated elements - same style as HomePage */}
+      {floatingElements.map((el, i) => (
+        <div
+          key={i}
+          className="absolute pointer-events-none animate-float-wobble"
+          style={{
+            left: `${el.x}%`,
+            top: `${el.y}%`,
+            fontSize: `${el.size}px`,
+            animationDelay: `${el.delay}s`,
+          }}
+        >
+          {el.emoji}
+        </div>
+      ))}
+
+      {/* Sparkle effects */}
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute animate-twinkle pointer-events-none"
+          style={{
+            left: `${15 + Math.random() * 70}%`,
+            top: `${15 + Math.random() * 70}%`,
+            animationDelay: `${i * 0.5}s`,
+          }}
+        >
+          <span className="text-2xl">✨</span>
+        </div>
+      ))}
+
+      {/* Header - same style as HomePage */}
+      <header className="relative z-10 p-4 flex justify-between items-center">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg hover:scale-105 transition-all"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span className="font-bold text-gray-700">Home</span>
+        </button>
+
+        {progress && progress.totalStars > 0 && (
+          <div className="flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
+            <span className="text-amber-500 text-xl animate-pulse-star">⭐</span>
+            <span className="font-bold text-gray-700 text-lg">{progress.totalStars}</span>
+          </div>
+        )}
+      </header>
+
+      {/* Main content */}
+      <main className="relative z-10 flex flex-col items-center px-6 pt-2 pb-16">
+        {/* Title section - matching HomePage style */}
+        <div className="text-center mb-6">
+          <div className="text-6xl mb-3 animate-mascot-bounce">
+            {gradeLevel === 'jk' ? '🐣' : gradeLevel === 'sk' ? '🐥' : gradeLevel === 'grade1' ? '🦊' : gradeLevel === 'grade2' ? '🦁' : '🔮'}
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black text-white drop-shadow-lg mb-2 animate-title-pop">
+            {gradeInfo.name}
+          </h1>
+          <p className="text-lg text-white/90 font-medium drop-shadow">
+            Pick a story to read! 📖
+          </p>
+        </div>
+
+        {/* Story cards */}
+        <div className="w-full max-w-md space-y-3">
           {stories.map((story, index) => {
             const completed = isCompleted(story.id);
             const isHovered = hoveredStory === story.id;
@@ -129,183 +135,159 @@ export default function StoryLibrary({ gradeLevel, onSelectStory, onBack }: Stor
                 onMouseEnter={() => setHoveredStory(story.id)}
                 onMouseLeave={() => setHoveredStory(null)}
                 className={`
-                  relative group text-left overflow-hidden
-                  bg-white/90 backdrop-blur-sm rounded-3xl p-6
-                  border-2 transition-all duration-300
-                  shadow-lg hover:shadow-2xl
-                  ${completed ? 'border-green-300' : 'border-white/50 hover:border-blue-300'}
-                  ${isHovered ? 'scale-105 -rotate-1' : 'scale-100 rotate-0'}
+                  w-full flex items-center gap-4 p-4 rounded-2xl shadow-lg
+                  transform transition-all duration-200 ease-out
+                  ${isHovered ? 'scale-105 -translate-y-1' : 'scale-100'}
+                  hover:shadow-xl active:scale-98
+                  animate-card-slide-in
                 `}
                 style={{
+                  backgroundColor: isHovered ? gradeInfo.color : 'white',
                   animationDelay: `${index * 0.1}s`,
                 }}
               >
-                {/* Completion badge */}
-                {completed && (
-                  <div className="absolute -top-2 -right-2 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shadow-lg transform rotate-12 z-10">
-                    <span className="text-white text-2xl">✓</span>
-                  </div>
-                )}
-
-                {/* Animated background on hover */}
+                {/* Cover emoji */}
                 <div
-                  className={`absolute inset-0 bg-gradient-to-br transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                  style={{
-                    background: `linear-gradient(135deg, ${gradeInfo.color}15, transparent)`,
-                  }}
-                />
-
-                <div className="relative flex items-start gap-4">
-                  {/* Cover with animation */}
-                  <div
-                    className={`
-                      w-20 h-20 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0
-                      transition-all duration-300 shadow-md
-                      ${isHovered ? 'scale-110 rotate-6' : 'scale-100 rotate-0'}
-                    `}
-                    style={{
-                      backgroundColor: `${gradeInfo.color}20`,
-                      boxShadow: isHovered ? `0 8px 30px ${gradeInfo.color}40` : undefined,
-                    }}
-                  >
-                    <span className={`transition-transform duration-300 ${isHovered ? 'animate-wiggle' : ''}`}>
-                      {story.coverEmoji}
-                    </span>
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0 pt-1">
-                    <h2 className={`
-                      text-xl font-bold text-gray-800 mb-1 transition-colors
-                      ${isHovered ? 'text-blue-600' : ''}
-                    `}>
-                      {story.title}
-                    </h2>
-                    <p className="text-gray-500 text-sm mb-2">
-                      {story.theme}
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-sm font-medium">
-                        📖 {story.pages.length} pages
-                      </span>
-                      {completed && (
-                        <span className="inline-flex items-center gap-1 bg-green-100 text-green-600 px-3 py-1 rounded-full text-sm font-medium">
-                          Done! 🎉
-                        </span>
-                      )}
+                  className={`
+                    w-16 h-16 rounded-xl flex items-center justify-center text-3xl
+                    transition-all duration-200 relative
+                    ${isHovered ? 'bg-white/30 scale-110 animate-wiggle' : 'bg-gray-50'}
+                  `}
+                >
+                  {story.coverEmoji}
+                  {completed && (
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs shadow">
+                      ✓
                     </div>
+                  )}
+                </div>
+
+                {/* Story info */}
+                <div className="flex-1 text-left">
+                  <div className={`text-lg font-bold transition-colors ${isHovered ? 'text-white' : 'text-gray-800'}`}>
+                    {story.title}
+                  </div>
+                  <div className={`text-sm font-medium transition-colors ${isHovered ? 'text-white/80' : 'text-gray-400'}`}>
+                    {story.pages.length} pages · {story.theme}
+                    {completed && ' · Done! 🎉'}
                   </div>
                 </div>
 
-                {/* Hover arrow */}
-                <div className={`
-                  absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full
-                  bg-blue-500 text-white flex items-center justify-center
-                  transition-all duration-300 shadow-lg
-                  ${isHovered ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}
-                `}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                {/* Arrow */}
+                <div className={`text-2xl transition-all duration-200 ${isHovered ? 'translate-x-1 text-white' : 'text-gray-300'}`}>
+                  →
                 </div>
-
-                {/* Sparkle effect on hover */}
-                {isHovered && (
-                  <>
-                    <div className="absolute top-2 left-8 text-yellow-400 animate-ping">✨</div>
-                    <div className="absolute bottom-4 right-16 text-yellow-400 animate-ping" style={{ animationDelay: '0.3s' }}>✨</div>
-                  </>
-                )}
               </button>
             );
           })}
         </div>
 
-        {/* Completion status */}
-        {progress && (
-          <div className="mt-12 text-center">
-            <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-sm px-6 py-4 rounded-2xl shadow-lg border border-white/50">
-              <div className="text-4xl">🏆</div>
-              <div className="text-left">
-                <div className="text-2xl font-bold text-gray-800">
-                  {progress.booksCompleted.filter(id => stories.some(s => s.id === id)).length} / {stories.length}
-                </div>
-                <div className="text-gray-500 text-sm">books completed</div>
+        {/* Progress summary - matching HomePage style */}
+        {progress && completedCount > 0 && (
+          <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-xl max-w-sm w-full animate-fade-in-up">
+            <h3 className="text-center text-gray-600 font-medium mb-4">Progress 🏆</h3>
+            <div className="flex items-center justify-center gap-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-500">{completedCount}</div>
+                <div className="text-xs text-gray-400 font-medium">of {stories.length} done</div>
               </div>
-              <div className="w-24 h-3 bg-gray-200 rounded-full overflow-hidden ml-2">
+              <div className="w-32 h-3 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${(progress.booksCompleted.filter(id => stories.some(s => s.id === id)).length / stories.length) * 100}%`
-                  }}
+                  style={{ width: `${(completedCount / stories.length) * 100}%` }}
                 />
               </div>
             </div>
           </div>
         )}
+
+        {/* Fun footer */}
+        <div className="mt-6 text-center">
+          <p className="text-white/80 text-sm font-medium animate-pulse-slow">
+            {stories.length - completedCount > 0
+              ? `${stories.length - completedCount} adventures waiting! 🚀`
+              : 'All books completed! Amazing! 🌟'}
+          </p>
+        </div>
       </main>
 
       <style jsx>{`
-        @keyframes float-up {
-          0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 0;
-          }
-          10% {
-            opacity: 0.6;
-          }
-          90% {
-            opacity: 0.6;
-          }
-          100% {
-            transform: translateY(-100vh) rotate(360deg);
-            opacity: 0;
-          }
+        @keyframes cloud-drift-slow {
+          0%, 100% { transform: translateX(-100px); }
+          50% { transform: translateX(100px); }
         }
-        .animate-float-up {
-          animation: float-up linear infinite;
+        .animate-cloud-drift-slow {
+          animation: cloud-drift-slow 20s ease-in-out infinite;
         }
 
-        @keyframes gradient-shift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+        @keyframes float-wobble {
+          0%, 100% { transform: translateY(0) rotate(-5deg); }
+          25% { transform: translateY(-15px) rotate(5deg); }
+          50% { transform: translateY(-8px) rotate(-3deg); }
+          75% { transform: translateY(-20px) rotate(3deg); }
         }
-        .animate-gradient-shift {
-          animation: gradient-shift 15s ease infinite;
-        }
-
-        @keyframes pulse-slow {
-          0%, 100% { transform: scale(1); opacity: 0.4; }
-          50% { transform: scale(1.1); opacity: 0.6; }
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 4s ease-in-out infinite;
+        .animate-float-wobble {
+          animation: float-wobble 4s ease-in-out infinite;
         }
 
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
+        @keyframes mascot-bounce {
+          0%, 100% { transform: translateY(0) rotate(-3deg); }
+          50% { transform: translateY(-15px) rotate(3deg); }
         }
-        .animate-bounce-slow {
-          animation: bounce-slow 2s ease-in-out infinite;
+        .animate-mascot-bounce {
+          animation: mascot-bounce 2s ease-in-out infinite;
         }
 
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes title-pop {
+          0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+          60% { transform: scale(1.1) rotate(3deg); }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
-        .animate-spin-slow {
-          animation: spin-slow 3s linear infinite;
+        .animate-title-pop {
+          animation: title-pop 0.6s ease-out forwards;
+          animation-delay: 0.1s;
+          opacity: 0;
+        }
+
+        @keyframes card-slide-in {
+          0% { transform: translateX(-50px); opacity: 0; }
+          100% { transform: translateX(0); opacity: 1; }
+        }
+        .animate-card-slide-in {
+          animation: card-slide-in 0.5s ease-out forwards;
+          opacity: 0;
         }
 
         @keyframes wiggle {
-          0%, 100% { transform: rotate(0deg); }
-          25% { transform: rotate(-10deg); }
-          75% { transform: rotate(10deg); }
+          0%, 100% { transform: rotate(-5deg) scale(1.1); }
+          50% { transform: rotate(5deg) scale(1.1); }
         }
         .animate-wiggle {
-          animation: wiggle 0.5s ease-in-out infinite;
+          animation: wiggle 0.3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-star {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+        }
+        .animate-pulse-star {
+          animation: pulse-star 1.5s ease-in-out infinite;
+        }
+
+        @keyframes fade-in-up {
+          0% { transform: translateY(20px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out forwards;
+        }
+
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 1; }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 3s ease-in-out infinite;
         }
       `}</style>
     </div>

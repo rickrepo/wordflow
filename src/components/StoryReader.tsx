@@ -45,6 +45,7 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [textLines, setTextLines] = useState<TextLine[]>([]);
   const [hasStartedReading, setHasStartedReading] = useState(false);
+  const [pointerXOnLine, setPointerXOnLine] = useState<number | null>(null); // relative to textBox left
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const textBoxRef = useRef<HTMLDivElement>(null);
@@ -157,8 +158,14 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     const x = e.clientX;
     const y = e.clientY - 50;
 
-    let foundIndex: number | null = null;
+    // Track pointer X position relative to textBox for the finger indicator
+    if (textBoxRef.current) {
+      const boxRect = textBoxRef.current.getBoundingClientRect();
+      setPointerXOnLine(x - boxRect.left);
+    }
 
+    // Find which word the pointer is over
+    let foundIndex: number | null = null;
     wordRefs.current.forEach((ref, index) => {
       if (!ref) return;
       const rect = ref.getBoundingClientRect();
@@ -168,26 +175,37 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       }
     });
 
-    if (foundIndex !== null && foundIndex !== activeWordIndex) {
-      if (!hasStartedReading) setHasStartedReading(true);
-      const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
-      setActiveWordIndex(foundIndex);
+    // Strict sequential: only the next unread word can be completed
+    const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
 
-      setWordStates(prev => prev.map((ws, i) => {
-        if (i === foundIndex) {
-          const newVisitCount = ws.visitCount + 1;
-          const canComplete = i === nextToRead || ws.isCompleted || nextToRead === -1;
-          return {
-            ...ws,
-            isActive: true,
-            visitCount: newVisitCount,
-            isStruggling: canComplete ? newVisitCount >= STRUGGLE_THRESHOLD : ws.isStruggling,
-            isCompleted: canComplete ? true : ws.isCompleted,
-          };
-        }
-        return { ...ws, isActive: false };
-      }));
-    } else if (foundIndex === null && activeWordIndex !== null) {
+    if (foundIndex !== null) {
+      if (!hasStartedReading) setHasStartedReading(true);
+
+      // Only activate and complete if it's the next word in sequence
+      if (foundIndex === nextToRead) {
+        setActiveWordIndex(foundIndex);
+        setWordStates(prev => prev.map((ws, i) => {
+          if (i === foundIndex) {
+            const newVisitCount = ws.visitCount + 1;
+            return {
+              ...ws,
+              isActive: true,
+              isCompleted: true,
+              visitCount: newVisitCount,
+              isStruggling: newVisitCount >= STRUGGLE_THRESHOLD,
+            };
+          }
+          return { ...ws, isActive: false };
+        }));
+      } else if (foundIndex !== activeWordIndex) {
+        // Swiped over a word that's not next - just show it's active but don't complete
+        setActiveWordIndex(foundIndex);
+        setWordStates(prev => prev.map((ws, i) => ({
+          ...ws,
+          isActive: i === foundIndex,
+        })));
+      }
+    } else if (activeWordIndex !== null) {
       setActiveWordIndex(null);
       setWordStates(prev => prev.map(ws => ({ ...ws, isActive: false })));
     }
@@ -222,19 +240,20 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       {/* Full-screen immersive story scene */}
       <StoryScene storyId={story.id} />
 
-      {/* Minimal floating controls */}
+      {/* Floating controls */}
       <div style={{ position: 'absolute', top: 16, left: 16, right: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
         <button
           onClick={onBack}
-          style={{ width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.7)', color: '#4B5563', border: 'none', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.9)', padding: '8px 14px', borderRadius: 9999, border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
         >
-          <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ width: 18, height: 18, color: '#4B5563' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>Books</span>
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.7)', padding: '6px 12px', borderRadius: 9999 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.9)', padding: '8px 14px', borderRadius: 9999, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
           <span style={{ fontSize: 18 }}>{story.coverEmoji}</span>
-          <span style={{ fontSize: 14, fontWeight: 500, color: '#374151' }}>{currentPage + 1}/{totalPages}</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>{currentPage + 1}/{totalPages}</span>
         </div>
       </div>
 
@@ -284,17 +303,26 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                   padding: '2px 4px',
                 };
 
-                if (ws.isActive) {
+                if (ws.isActive && (ws.isCompleted || isNextWord)) {
+                  // Active on the correct next word - blue highlight
                   wordStyle.background = '#3B82F6';
                   wordStyle.color = 'white';
                   wordStyle.borderRadius = 6;
                   wordStyle.boxShadow = '0 2px 8px rgba(59,130,246,0.4)';
+                } else if (ws.isActive && !ws.isCompleted) {
+                  // Finger is on wrong word (not next) - subtle red hint
+                  wordStyle.background = 'rgba(239,68,68,0.15)';
+                  wordStyle.color = '#9CA3AF';
+                  wordStyle.borderRadius = 6;
                 } else if (ws.isCompleted) {
                   wordStyle.color = '#1F2937';
                 } else if (isNextWord) {
+                  // Next word to read - bold with bright yellow background
                   wordStyle.color = '#1F2937';
-                  wordStyle.fontWeight = 600;
-                  wordStyle.background = 'rgba(253,224,71,0.3)';
+                  wordStyle.fontWeight = 700;
+                  wordStyle.background = 'rgba(253,224,71,0.5)';
+                  wordStyle.borderRadius = 6;
+                  wordStyle.boxShadow = '0 0 6px rgba(253,224,71,0.4)';
                 } else {
                   wordStyle.color = '#9CA3AF';
                 }
@@ -339,20 +367,36 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                       boxShadow: active ? '0 0 8px rgba(59,130,246,0.4)' : 'none',
                     }}
                   />
-                  {/* Animated hand on active line - disappears once child starts reading */}
-                  {active && !hasStartedReading && !pageComplete && (
-                    <div
-                      className="hand-guide"
-                      style={{
-                        position: 'absolute',
-                        top: -8,
-                        left: 0,
-                        fontSize: 28,
-                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
-                      }}
-                    >
-                      👆
-                    </div>
+                  {/* Finger indicator: animated hint when not started, follows pointer when swiping */}
+                  {active && !pageComplete && (
+                    hasStartedReading && pointerXOnLine !== null ? (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: -10,
+                          left: Math.max(0, Math.min(pointerXOnLine - line.left + 4, lineWidth - 28)),
+                          fontSize: 28,
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                          transition: 'left 0.05s linear',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        👆
+                      </div>
+                    ) : !hasStartedReading && (
+                      <div
+                        className="hand-guide"
+                        style={{
+                          position: 'absolute',
+                          top: -10,
+                          left: 0,
+                          fontSize: 28,
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                        }}
+                      >
+                        👆
+                      </div>
+                    )
                   )}
                 </div>
               );
