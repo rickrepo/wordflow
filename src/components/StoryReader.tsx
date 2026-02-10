@@ -170,12 +170,19 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
       pointerXRef.current = x - boxRect.left;
 
       // Directly update finger position for smooth tracking (bypasses React render)
+      // Clamp to right edge of next unread word so finger can't skip ahead
       if (fingerRef.current && isPointerDownRef.current && hasStartedReading) {
         const activeLine = textLines[activeLineIndex];
         if (activeLine) {
           const lineWidth = activeLine.right - activeLine.left + 8;
+          const nextToReadIdx = wordStates.findIndex(ws => !ws.isCompleted);
+          let maxX = lineWidth - 28; // default: end of line
+          if (nextToReadIdx >= 0 && wordRefs.current[nextToReadIdx]) {
+            const nextWordRect = wordRefs.current[nextToReadIdx]!.getBoundingClientRect();
+            maxX = nextWordRect.right - boxRect.left - activeLine.left + 8;
+          }
           const fingerX = pointerXRef.current - activeLine.left + 4;
-          const clampedX = Math.max(0, Math.min(fingerX, lineWidth - 28));
+          const clampedX = Math.max(0, Math.min(fingerX, maxX));
           fingerRef.current.style.left = `${clampedX}px`;
           fingerRef.current.style.transition = 'left 0.05s linear';
         }
@@ -195,19 +202,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
 
     // Strict sequential: only the next unread word can be completed
     const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
-
-    // Highlight next word via DOM when pointer approaches it (no re-render)
-    if (isPointerDownRef.current && nextToRead >= 0 && wordRefs.current[nextToRead]) {
-      const wordRect = wordRefs.current[nextToRead]!.getBoundingClientRect();
-      const el = wordRefs.current[nextToRead]!;
-      if (x >= wordRect.left - 20) {
-        el.style.background = 'rgba(253,224,71,0.5)';
-        el.style.fontWeight = '700';
-        el.style.color = '#1F2937';
-        el.style.borderRadius = '6px';
-        el.style.boxShadow = '0 0 6px rgba(253,224,71,0.4)';
-      }
-    }
 
     if (foundIndex !== null) {
       if (!hasStartedReading) setHasStartedReading(true);
@@ -236,16 +230,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
 
   const handlePointerUp = useCallback(() => {
     isPointerDownRef.current = false;
-    // Clear DOM highlight from next word
-    const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
-    if (nextIdx >= 0 && wordRefs.current[nextIdx]) {
-      const el = wordRefs.current[nextIdx]!;
-      el.style.background = 'transparent';
-      el.style.fontWeight = '500';
-      el.style.color = '#9CA3AF';
-      el.style.borderRadius = '4px';
-      el.style.boxShadow = 'none';
-    }
     // Snap finger back to next word position via DOM
     if (fingerRef.current && textBoxRef.current) {
       const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
@@ -342,14 +326,9 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                 const wordStyle: React.CSSProperties = {
                   display: 'inline',
                   cursor: 'pointer',
-                  transition: 'color 0.15s ease-out, background 0.15s ease-out',
+                  transition: 'color 0.15s ease-out',
                   position: 'relative',
-                  borderRadius: 4,
                   padding: '2px 4px',
-                  // Explicit defaults so React clears any DOM-set highlight on re-render
-                  background: 'transparent',
-                  fontWeight: 500,
-                  boxShadow: 'none',
                 };
 
                 if (ws.isCompleted) {
