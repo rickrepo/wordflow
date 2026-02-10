@@ -196,6 +196,19 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     // Strict sequential: only the next unread word can be completed
     const nextToRead = wordStates.findIndex(ws => !ws.isCompleted);
 
+    // Highlight next word via DOM when pointer approaches it (no re-render)
+    if (isPointerDownRef.current && nextToRead >= 0 && wordRefs.current[nextToRead]) {
+      const wordRect = wordRefs.current[nextToRead]!.getBoundingClientRect();
+      const el = wordRefs.current[nextToRead]!;
+      if (x >= wordRect.left - 20) {
+        el.style.background = 'rgba(253,224,71,0.5)';
+        el.style.fontWeight = '700';
+        el.style.color = '#1F2937';
+        el.style.borderRadius = '6px';
+        el.style.boxShadow = '0 0 6px rgba(253,224,71,0.4)';
+      }
+    }
+
     if (foundIndex !== null) {
       if (!hasStartedReading) setHasStartedReading(true);
 
@@ -223,6 +236,16 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
 
   const handlePointerUp = useCallback(() => {
     isPointerDownRef.current = false;
+    // Clear DOM highlight from next word
+    const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
+    if (nextIdx >= 0 && wordRefs.current[nextIdx]) {
+      const el = wordRefs.current[nextIdx]!;
+      el.style.background = 'transparent';
+      el.style.fontWeight = '500';
+      el.style.color = '#9CA3AF';
+      el.style.borderRadius = '4px';
+      el.style.boxShadow = 'none';
+    }
     // Snap finger back to next word position via DOM
     if (fingerRef.current && textBoxRef.current) {
       const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
@@ -316,8 +339,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
             {/* The text */}
             <p style={{ textAlign: 'center', lineHeight: 2.8, fontWeight: 500, margin: 0, fontSize: 'clamp(1.4rem, 5vw, 2.2rem)' }}>
               {wordStates.map((ws, i) => {
-                const isNextWord = i === nextWordIndex;
-
                 const wordStyle: React.CSSProperties = {
                   display: 'inline',
                   cursor: 'pointer',
@@ -325,20 +346,17 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
                   position: 'relative',
                   borderRadius: 4,
                   padding: '2px 4px',
+                  // Explicit defaults so React clears any DOM-set highlight on re-render
+                  background: 'transparent',
+                  fontWeight: 500,
+                  boxShadow: 'none',
                 };
 
                 if (ws.isCompleted) {
                   // Done - dark text
                   wordStyle.color = '#1F2937';
-                } else if (isNextWord) {
-                  // Next word to read - bold with yellow highlight
-                  wordStyle.color = '#1F2937';
-                  wordStyle.fontWeight = 700;
-                  wordStyle.background = 'rgba(253,224,71,0.5)';
-                  wordStyle.borderRadius = 6;
-                  wordStyle.boxShadow = '0 0 6px rgba(253,224,71,0.4)';
                 } else {
-                  // Unread - gray
+                  // Unread (including next) - gray until finger reaches it
                   wordStyle.color = '#9CA3AF';
                 }
 

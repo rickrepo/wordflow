@@ -8,14 +8,18 @@ import BookCompleteCharacter from './illustrations/BookCompleteCharacter';
 
 interface CompletionScreenProps {
   story: Story;
+  nextStory: Story | null;
   onReadAgain: () => void;
+  onNextBook: (story: Story) => void;
   onChooseAnother: () => void;
   onHome: () => void;
 }
 
 export default function CompletionScreen({
   story,
+  nextStory,
   onReadAgain,
+  onNextBook,
   onChooseAnother,
   onHome,
 }: CompletionScreenProps) {
@@ -91,6 +95,25 @@ export default function CompletionScreen({
           </div>
         )}
       </div>
+
+      {/* Next book recommendation */}
+      {nextStory && (
+        <button
+          onClick={() => onNextBook(nextStory)}
+          className="w-full max-w-sm mb-4"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+        >
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-4 shadow-lg border-2 border-blue-200 flex items-center gap-4 hover:scale-[1.02] transition-transform">
+            <div className="text-4xl">{nextStory.coverEmoji}</div>
+            <div className="flex-1 text-left">
+              <div className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Up Next</div>
+              <div className="text-lg font-bold text-gray-800">{nextStory.title}</div>
+              <div className="text-sm text-gray-500">by {nextStory.author}</div>
+            </div>
+            <div className="text-2xl text-blue-400">→</div>
+          </div>
+        </button>
+      )}
 
       {/* Action buttons */}
       <div className="w-full max-w-sm space-y-3">

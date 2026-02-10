@@ -41,7 +41,7 @@ export default function HomePage({ onSelectGrade }: HomePageProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-400 via-purple-300 to-pink-200 relative overflow-hidden">
+    <div className="min-h-screen bg-pink-200 bg-gradient-to-b from-blue-400 via-purple-300 to-pink-200 relative overflow-hidden">
       {/* Animated background clouds */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-10 left-0 animate-cloud-drift-slow">

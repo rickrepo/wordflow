@@ -7,6 +7,7 @@ import VocabPrep from '@/components/VocabPrep';
 import StoryReader from '@/components/StoryReader';
 import CompletionScreen from '@/components/CompletionScreen';
 import type { GradeLevel, Story } from '@/lib/stories';
+import { getStoriesByGrade } from '@/lib/stories';
 
 type AppState = 'home' | 'library' | 'vocab' | 'reading' | 'complete';
 
@@ -46,6 +47,11 @@ export default function App() {
 
   const handleReadAgain = () => {
     setAppState('reading'); // Go straight to reading again
+  };
+
+  const handleNextBook = (story: Story) => {
+    setSelectedStory(story);
+    setAppState('reading');
   };
 
   switch (appState) {
@@ -98,14 +104,23 @@ export default function App() {
         setAppState('home');
         return null;
       }
-      return (
-        <CompletionScreen
-          story={selectedStory}
-          onReadAgain={handleReadAgain}
-          onChooseAnother={handleBackToLibrary}
-          onHome={handleBackToHome}
-        />
-      );
+      {
+        const gradeStories = getStoriesByGrade(selectedGrade);
+        const currentIdx = gradeStories.findIndex(s => s.id === selectedStory.id);
+        const nextStory = currentIdx >= 0 && currentIdx < gradeStories.length - 1
+          ? gradeStories[currentIdx + 1]
+          : null;
+        return (
+          <CompletionScreen
+            story={selectedStory}
+            nextStory={nextStory}
+            onReadAgain={handleReadAgain}
+            onNextBook={handleNextBook}
+            onChooseAnother={handleBackToLibrary}
+            onHome={handleBackToHome}
+          />
+        );
+      }
 
     default:
       return <HomePage onSelectGrade={handleSelectGrade} />;
