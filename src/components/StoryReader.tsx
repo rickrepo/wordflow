@@ -44,7 +44,6 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
   const [progress, setProgress] = useState<GameProgress | null>(null);
   const [textLines, setTextLines] = useState<TextLine[]>([]);
   const [hasStartedReading, setHasStartedReading] = useState(false);
-  const swipeActiveRef = useRef(false);
   const pointerXRef = useRef<number | null>(null);
   const fingerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -157,50 +156,47 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
     line.wordIndices.includes(nextWordIndex)
   );
 
-  // Gesture handling via @use-gesture/react — battle-tested tap vs drag detection.
-  // filterTaps: library identifies taps automatically (< 3px movement + quick release).
-  // We additionally require 50px net rightward movement before completing any words.
+  // Gesture: useDrag with threshold: 50 means the handler DOES NOT FIRE AT ALL
+  // until the finger has moved 50px. Taps, wobbles, accidental touches — none of
+  // them reach our code. Only a real 50px+ drag triggers the callback.
   const bind = useDrag(
     (state) => {
-      const { active, xy: [x, rawY], movement: [mx], tap, first, last } = state;
+      const { active, xy: [x, rawY], movement: [mx], tap } = state;
 
-      // Library detected a tap — ignore completely
       if (tap) return;
 
-      // Drag ended — reset and snap finger back
+      // Drag ended — snap finger back to next word
       if (!active) {
-        swipeActiveRef.current = false;
         if (fingerRef.current && textBoxRef.current) {
           const nextIdx = wordStates.findIndex(ws => !ws.isCompleted);
-          const activeLine = textLines.find(line => line.wordIndices.includes(nextIdx));
-          if (activeLine && nextIdx >= 0 && wordRefs.current[nextIdx]) {
+          const line = textLines.find(l => l.wordIndices.includes(nextIdx));
+          if (line && nextIdx >= 0 && wordRefs.current[nextIdx]) {
             const wordRect = wordRefs.current[nextIdx]!.getBoundingClientRect();
             const boxRect = textBoxRef.current.getBoundingClientRect();
-            const defaultX = wordRect.left - boxRect.left - activeLine.left + 4;
-            const lineWidth = activeLine.right - activeLine.left + 8;
-            const clampedX = Math.max(0, Math.min(defaultX, lineWidth - 28));
-            fingerRef.current.style.left = `${clampedX}px`;
+            const defaultX = wordRect.left - boxRect.left - line.left + 4;
+            const lineWidth = line.right - line.left + 8;
+            fingerRef.current.style.left = `${Math.max(0, Math.min(defaultX, lineWidth - 28))}px`;
             fingerRef.current.style.transition = 'left 0.2s ease-out';
           }
         }
         return;
       }
 
-      // New drag started — reset swipe flag
-      if (first) {
-        swipeActiveRef.current = false;
-      }
-
       if (showHelp || showPageTransition || pageComplete) return;
+
+      // Only complete words on rightward movement
+      if (mx <= 0) return;
+
+      if (!hasStartedReading) setHasStartedReading(true);
 
       const y = rawY - 10;
 
-      // Update finger visual (always, for responsiveness even before swipe confirmed)
+      // Update finger visual
       if (textBoxRef.current) {
         const boxRect = textBoxRef.current.getBoundingClientRect();
         pointerXRef.current = x - boxRect.left;
 
-        if (fingerRef.current && hasStartedReading) {
+        if (fingerRef.current) {
           const activeLine = textLines[activeLineIndex];
           if (activeLine) {
             const lineWidth = activeLine.right - activeLine.left + 8;
@@ -211,24 +207,13 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
               maxX = nextWordRect.right - boxRect.left - activeLine.left + 8;
             }
             const fingerX = pointerXRef.current - activeLine.left + 4;
-            const clampedX = Math.max(0, Math.min(fingerX, maxX));
-            fingerRef.current.style.left = `${clampedX}px`;
+            fingerRef.current.style.left = `${Math.max(0, Math.min(fingerX, maxX))}px`;
             fingerRef.current.style.transition = 'left 0.05s linear';
           }
         }
       }
 
-      // Gate: require 50px net rightward movement to confirm this is a real swipe
-      if (!swipeActiveRef.current) {
-        if (mx >= 50) {
-          swipeActiveRef.current = true;
-          if (!hasStartedReading) setHasStartedReading(true);
-        } else {
-          return; // not yet confirmed as a swipe
-        }
-      }
-
-      // Swipe confirmed — complete all sequential words the finger has passed
+      // Complete all sequential words the finger has passed
       setWordStates(prev => {
         let changed = false;
         const updated = prev.map(ws => ({ ...ws }));
@@ -261,7 +246,11 @@ export default function StoryReader({ story, gradeLevel, onBack, onComplete }: S
         return changed ? updated : prev;
       });
     },
-    { filterTaps: true, pointer: { touch: true } }
+    {
+      filterTaps: true,
+      threshold: 50,
+      pointer: { touch: true },
+    }
   );
 
   // Word tap for help
