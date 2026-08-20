@@ -155,6 +155,7 @@ class Track:
     downbeat_times: np.ndarray
     pattern: str
     vocal_bars: tuple[int, ...]
+    transpose: int = 0
 
     @property
     def duration(self) -> float:
@@ -165,11 +166,29 @@ class Track:
 # evidence the grid uses instead of assuming a kick on beat 1.
 CHORD_CYCLE_HZ = (65.41, 98.00, 87.31, 73.42)  # C2 G2 F2 D2
 
+# Several genuinely different progressions, not one shape transposed.
+#
+# This matters for testing mix segmentation. A transposed copy of one
+# progression averages, over its cycle, to a rotation of the same pitch-class
+# set -- and rotations of a broad set are nearly indistinguishable. Four tracks
+# built that way are not four tracks as far as any analyser is concerned, so a
+# mix of them tests nothing. Real records differ in progression LENGTH and SHAPE,
+# not just in key.
+CHORD_CYCLES: dict[str, tuple[float, ...]] = {
+    "cgfd":   (65.41, 98.00, 87.31, 73.42),               # C  G  F  D
+    "am_vamp": (110.00, 82.41),                            # Am Em, 2-bar vamp
+    "dorian4": (73.42, 98.00, 73.42, 87.31),               # D  G  D  F
+    "phryg":  (87.31, 92.50, 87.31, 65.41),                # F  F# F  C
+    "minor3": (98.00, 116.54, 87.31),                      # G  Bb F, 3-bar cycle
+    "soca6":  (110.00, 146.83, 130.81, 98.00, 110.00, 87.31),
+}
+
 
 def make_track(pattern: str = "one_drop", bars: int = 32, sr: int = SR,
                bpm: float | None = None, lead_in_beats: float = 2.6,
                drift_bpm: float = 0.0, vocal_bars: tuple[int, ...] = (),
-               seed: int = 7) -> Track:
+               seed: int = 7, transpose: int = 0,
+               chord_cycle: str | tuple[float, ...] = "cgfd") -> Track:
     """Render a synthetic track and return it with ground-truth beat positions.
 
     lead_in_beats is deliberately fractional: it stops bar 1 from landing at
@@ -180,6 +199,8 @@ def make_track(pattern: str = "one_drop", bars: int = 32, sr: int = SR,
     if pattern not in PATTERNS:
         raise ValueError(f"unknown pattern {pattern!r}; have {sorted(PATTERNS)}")
     pat = PATTERNS[pattern]
+    cycle = (CHORD_CYCLES.get(chord_cycle, CHORD_CYCLE_HZ)
+             if isinstance(chord_cycle, str) else tuple(chord_cycle))
     bpm0 = float(bpm if bpm is not None else pat.bpm)
     rng = np.random.default_rng(seed)
 
@@ -208,7 +229,7 @@ def make_track(pattern: str = "one_drop", bars: int = 32, sr: int = SR,
         bar_start = beat_times[b0]
         beat_dur = (beat_times[min(b0 + 4, len(beat_times) - 1)] - bar_start) / 4.0
         step_dur = beat_dur / 4.0
-        root = CHORD_CYCLE_HZ[bar % len(CHORD_CYCLE_HZ)]
+        root = cycle[bar % len(cycle)] * 2 ** (transpose / 12.0)
 
         for step, vel in pat.kick.items():
             place(_kick(sr, vel=vel), bar_start + step * step_dur)
@@ -230,4 +251,118 @@ def make_track(pattern: str = "one_drop", bars: int = 32, sr: int = SR,
         out = out / peak * 0.72
     return Track(audio=out.astype(np.float64), sr=sr, bpm=bpm0,
                  beat_times=beat_times, downbeat_times=downbeat_times,
-                 pattern=pattern, vocal_bars=tuple(vocal_bars))
+                 pattern=pattern, vocal_bars=tuple(vocal_bars), transpose=transpose)
+
+
+# --------------------------------------------------------------------------
+# synthetic DJ mixes, for testing mix analysis against ground truth
+# --------------------------------------------------------------------------
+
+@dataclass
+class MixSegment:
+    """One track's stretch inside a mix, in seconds and in mix bars."""
+    index: int
+    pattern: str
+    bpm: float
+    transpose: int
+    start_s: float
+    end_s: float
+    start_bar: int
+    end_bar: int
+
+
+@dataclass
+class MixTransition:
+    """A blend between two segments. Ground truth for the analyser."""
+    from_index: int
+    to_index: int
+    start_s: float
+    end_s: float
+    start_bar: int
+    bars: int
+
+
+@dataclass
+class Mix:
+    audio: np.ndarray
+    sr: int
+    bpm: float
+    segments: list[MixSegment]
+    transitions: list[MixTransition]
+    beat_times: np.ndarray
+    downbeat_times: np.ndarray
+
+    @property
+    def duration(self) -> float:
+        return len(self.audio) / self.sr
+
+
+def make_mix(specs: list[dict], bpm: float = 100.0, sr: int = SR,
+             seed: int = 3) -> Mix:
+    """Build a beatmatched mix from track specs, with known transition points.
+
+    Each spec: {pattern, bars, blend_bars, transpose, vocal_bars}. Tracks are
+    rendered at one shared tempo, as a beatmatched set is, and crossfaded over
+    `blend_bars` starting on a bar line. `blend_bars=0` gives a hard cut.
+
+    Ground truth comes back with it, so segmentation accuracy is a measurement.
+    """
+    beat = 60.0 / bpm
+    bar_s = beat * 4
+    rendered = []
+    for i, spec in enumerate(specs):
+        t = make_track(spec.get("pattern", "dancehall"),
+                       bars=spec.get("bars", 32) + 4, bpm=bpm,
+                       lead_in_beats=0.0, seed=seed + i * 17,
+                       transpose=spec.get("transpose", 0),
+                       chord_cycle=spec.get("chord_cycle", "cgfd"),
+                       vocal_bars=tuple(spec.get("vocal_bars", ())), sr=sr)
+        rendered.append(t)
+
+    out = np.zeros(0)
+    segments: list[MixSegment] = []
+    transitions: list[MixTransition] = []
+
+    # Track i+1 starts (play_bars[i] - blend[i]) bars after track i, because the
+    # blend overlaps them. Advancing by play_bars alone double-counts every
+    # overlap and walks the ground truth off the end of the audio.
+    start_bar = 0
+    for i, (spec, t) in enumerate(zip(specs, rendered)):
+        play_bars = spec.get("bars", 32)
+        segments.append(MixSegment(
+            index=i, pattern=spec.get("pattern", "dancehall"), bpm=bpm,
+            transpose=spec.get("transpose", 0),
+            start_s=start_bar * bar_s, end_s=(start_bar + play_bars) * bar_s,
+            start_bar=start_bar, end_bar=start_bar + play_bars))
+
+        body = t.audio[:int(round(play_bars * bar_s * sr))]
+        if i == 0:
+            out = body.copy()
+        else:
+            prev_blend = specs[i - 1].get("blend_bars", 8)
+            n = min(int(round(prev_blend * bar_s * sr)), len(out), len(body))
+            if n > 0:
+                tail = out[-n:]
+                fo = np.cos(np.linspace(0, np.pi / 2, n))
+                fi = np.sin(np.linspace(0, np.pi / 2, n))
+                out = np.concatenate([out[:len(out) - n], tail * fo + body[:n] * fi,
+                                      body[n:]])
+            else:
+                out = np.concatenate([out, body])
+            transitions.append(MixTransition(
+                from_index=i - 1, to_index=i,
+                start_s=start_bar * bar_s,
+                end_s=(start_bar + prev_blend) * bar_s,
+                start_bar=start_bar, bars=prev_blend))
+
+        blend = spec.get("blend_bars", 8) if i + 1 < len(specs) else 0
+        start_bar = start_bar + play_bars - blend
+
+    peak = np.abs(out).max()
+    if peak > 0:
+        out = out / peak * 0.72
+    n_beats = int(len(out) / sr / beat)
+    beats = np.arange(n_beats) * beat
+    return Mix(audio=out, sr=sr, bpm=bpm, segments=segments,
+               transitions=transitions, beat_times=beats,
+               downbeat_times=beats[::4])

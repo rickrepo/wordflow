@@ -849,3 +849,84 @@ grooves that will feel unrelated when syncopation levels differ sharply.
 A pair is rejected on measured harmony, not on the Camelot label: a wheel clash
 whose pitch content is genuinely consonant stays in the list, and a wheel match
 whose basslines sit a tritone apart is dropped.
+
+---
+
+## 14 — Mix analysis: learning from what a DJ actually did
+
+Track profiles describe what a record IS. This describes what a DJ DID with it:
+where each track came in, how long the blend ran, whether it landed on a phrase
+line, which way the key moved, whether the bass was swapped early.
+
+That is the material a model needs to learn technique from. It cannot infer
+mixing from track metadata — it needs examples of decisions that worked, which
+means analysing finished mixes and aggregating across many of them.
+
+`djintro mix set.wav` produces a timeline: per-segment tempo, key, mode, bass
+centre and energy, then per-transition blend length, phrase alignment, key move
+(via §13's direction model), tempo move, energy change and bass-swap evidence.
+
+### Bass-swap detection
+
+During a blend, both tracks are present. If the low register's allegiance flips
+to the incoming track several bars before the mid register's does, the DJ cut one
+bass and brought the other in — a bass swap. If both flip together, they rode the
+crossfader. Measured by tracking low-band and mid-band chroma similarity to the
+outgoing and incoming segment centroids across the blend and comparing crossover
+points.
+
+### Blind segmentation does not work well enough, and the tool says so
+
+**This is the honest status.** On a synthetic mix with known boundaries at bars
+24, 52 and 80, blind segmentation found 28 and 45 and missed the hard cut
+entirely. Blend spans came out at 39 bars against 16-, 8- and 0-bar ground truth.
+
+Two things are true about that result:
+
+1. **The test material understates the problem's difficulty in one direction.**
+   All four synthetic tracks are built from identical synthesis primitives — same
+   kick, snare, hat and bass timbres — so timbral novelty between them is near
+   zero and chroma carries the whole burden. Real records differ enormously in
+   production and instrumentation.
+2. **It also means the approach is unvalidated.** Nothing here licenses a claim
+   that it works on real mixes.
+
+Rather than emit authoritative-looking bar numbers it cannot back, the analyser
+computes its own `segmentation_confidence` — comparing within-block against
+across-block similarity at a lag longer than any single track — and refuses to
+present unreliable output as measurement. Blend spans beyond a plausibility
+limit are reported as `unknown` rather than as a number.
+
+### The recommended path: library-matched segmentation
+
+Blind segmentation is the hard version of this problem. The tractable version is
+matching: fingerprint the source records and **locate them inside the mix**,
+rather than trying to discover boundaries from novelty alone.
+
+This suits the actual use case exactly. A DJ analysing mixes has a library, and
+`library` already computes an instrumental fingerprint per track for riddim-family
+detection. The same fingerprint, cross-correlated against a sliding window of the
+mix, gives boundaries at sample accuracy along with track identity — which blind
+segmentation can never provide at all.
+
+That is the next thing to build here, and it should replace blind segmentation as
+the default whenever the source records are available. Blind segmentation stays as
+the fallback for mixes whose tracklist you do not have.
+
+### Bugs the ground truth caught
+
+- **Mix generator overlap bookkeeping.** Advancing the cursor by `play_bars`
+  ignored the bars each blend consumes, so the ground truth walked off the end of
+  the audio — the last segment claimed to end at 240 s of a 182 s mix. Every
+  accuracy figure measured against it was meaningless until fixed.
+- **Per-bar chroma measures chords, not records.** Two bars of the same track
+  scored 0.42 similarity while bars from two different tracks scored 0.64,
+  because per-bar chroma is dominated by position in the chord cycle. Features
+  are now smoothed across the harmonic cycle before anything is compared.
+- **Chroma was taken from the full mix.** Drums are broadband and smear chroma
+  toward uniform, burying the differences between records under a kit common to
+  all of them. Now taken from the harmonic component, as key detection already did.
+- **Transposition is not a second track.** Averaged over its cycle, a transposed
+  copy of one progression is a rotation of the same pitch-class set, and rotations
+  of a broad set are nearly indistinguishable. The synthetic corpus now varies
+  progression shape and length, not just key.

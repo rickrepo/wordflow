@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from . import library, phrase, profile, serato
+from . import library, mix, phrase, profile, serato
 from .grid import GENRE_BPM, detect_grid
 from .intro import build_drums_intro
 from .verify import Outcome, verify
@@ -36,6 +36,13 @@ def _parser() -> argparse.ArgumentParser:
     lb.add_argument("--text", type=Path, help="write the digest here as well as stdout")
     lb.set_defaults(func=cmd_library)
 
+    mx = sub.add_parser("mix", help="reverse-engineer a recorded DJ mix")
+    mx.add_argument("input", type=Path)
+    mx.add_argument("--genre", default="auto", choices=sorted(GENRE_BPM))
+    mx.add_argument("--min-segment-bars", type=int, default=16)
+    mx.add_argument("--json", type=Path)
+    mx.set_defaults(func=cmd_mix)
+
     p = sub.add_parser("intro", help="generate a verified 8-bar intro")
     p.set_defaults(func=cmd_intro)
     p.add_argument("input", type=Path)
@@ -58,6 +65,21 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--json", type=Path, help="write the verdict sidecar here")
     p.add_argument("-q", "--quiet", action="store_true")
     return root
+
+
+def cmd_mix(args) -> int:
+    import json as _json
+
+    import soundfile as sf
+    audio, sr = sf.read(str(args.input), dtype="float64", always_2d=True)
+    print(f"analysing {args.input.name} ({len(audio) / sr / 60:.1f} min)...", file=sys.stderr)
+    a = mix.analyse_mix(audio, sr, genre=args.genre,
+                        min_segment_bars=args.min_segment_bars)
+    print(a.to_text())
+    if args.json:
+        args.json.write_text(_json.dumps(a.to_dict(), indent=2))
+        print(f"\nwrote {args.json}")
+    return 0 if a.reliable else 1
 
 
 def cmd_analyze(args) -> int:
