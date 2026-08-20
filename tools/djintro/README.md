@@ -21,20 +21,61 @@ No demucs, madmom or GPU required for Phase 1. The percussive component comes fr
 median-filter HPSS, which stands in for a drum stem well enough to build and test
 the whole loop.
 
-## Use
+## Two tools
+
+### 1. Library analysis -- describe tracks for an AI
 
 ```bash
-python -m djintro.cli track.wav --genre reggae -o track.intro.wav --json verdict.json
+python -m djintro.cli analyze "Track.wav" --genre dancehall
+python -m djintro.cli library ~/Music/soca --genre auto --top 20 --json pool.json
 ```
 
-`--genre` sets the BPM range and is the reliable way to settle tempo octave:
-`reggae` 60–95, `dancehall` 82–115, `soca` 135–175, plus `afrobeats`, `hiphop`,
-`house`, `auto`.
+`analyze` prints a compact text digest of one track -- tempo, key in Camelot,
+bar count, section table, a per-phrase energy/vocal map, and the phrase-aligned
+windows where you can mix in and out. It is written to be pasted straight into
+an AI: every position is in bars, every scalar is on a stated scale.
+
+`library` profiles a folder and adds the pool view: tempo bands, Camelot
+distribution, **riddim families** (tracks sharing an instrumental, detected by
+fingerprint), and ranked transition candidates pairing one track's mix-out
+window with another's mix-in window. It knows the 3:2 relation that takes a
+dancehall set into soca (100 -> 150 BPM) and scores it as easy rather than as a
+50% stretch.
+
+`--json` writes the same data as strict JSON for programmatic use.
+
+### 2. Intro generation
+
+```bash
+python -m djintro.cli intro track.wav --genre dancehall -o track.intro.wav --json verdict.json
+```
+
+`--genre` sets the BPM range and is the reliable way to settle tempo octave.
+The two that matter here are `dancehall` (82–115) and `soca` (135–175); `reggae`
+(60–95), `afrobeats`, `hiphop`, `house` and `auto` are also available.
 
 Useful flags: `--build FLAT|HALF|QUARTER`, `--seed-bars 1|2|4|8`, `--cue-phrase
 8|16|32`, `--body-start-bar N`, `--dry-run`, `--serato`.
 
 Exit codes: `0` delivered, `1` abstained (nothing written), `2` unusable input.
+
+## What the analysis measures, and how far to trust it
+
+| Field | Method | Trust |
+| --- | --- | --- |
+| BPM, bar grid | ensemble beat tracking + self-similarity phase | high — 216/216 on the synthetic corpus |
+| Key / Camelot | Shaath profiles over a semitone filterbank on the harmonic component | good; `key_confidence` below ~0.10 means treat it as a guess |
+| Sections | bar-level self-similarity + checkerboard novelty, snapped to 4-bar lines | good for boundaries; labels are functional, not song-form guesses |
+| Energy | K-weighted level per bar | high |
+| **Vocal presence** | **estimate**, not separation — 300–3500 Hz harmonic energy plus 3–8 Hz syllable-rate modulation | **relative within a track only** |
+| Riddim families | instrumental fingerprint (chroma + sub-beat onset profile) | high when the backing really is the same recording |
+
+The vocal figure is the one to be careful with. Without source separation it is a
+proxy, and it is contrast-stretched within each track — so it reliably tells you
+which parts of a track are *least* vocal, which is what mix windows need, but it
+cannot assert a bar is vocal-free. `vocal_contrast` reports how much dynamic range
+there was; below 0.12 the digest says outright that no clearly instrumental
+section was found.
 
 ## What is genre-specific here
 

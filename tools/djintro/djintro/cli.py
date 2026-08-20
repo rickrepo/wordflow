@@ -9,16 +9,35 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from . import phrase, serato
+from . import library, phrase, profile, serato
 from .grid import GENRE_BPM, detect_grid
 from .intro import build_drums_intro
 from .verify import Outcome, verify
 
 
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
+    root = argparse.ArgumentParser(
         prog="djintro",
-        description="Generate a verified 8-bar DJ intro for a track.")
+        description="Verified 8-bar DJ intros, and library analysis for planning mixes.")
+    sub = root.add_subparsers(dest="command", required=True)
+
+    an = sub.add_parser("analyze", help="describe one track as text/JSON for an AI")
+    an.add_argument("input", type=Path)
+    an.add_argument("--genre", default="auto", choices=sorted(GENRE_BPM))
+    an.add_argument("--phrase", type=int, default=8, choices=(4, 8, 16))
+    an.add_argument("--json", type=Path)
+    an.set_defaults(func=cmd_analyze)
+
+    lb = sub.add_parser("library", help="profile a folder and rank transitions")
+    lb.add_argument("folder", type=Path)
+    lb.add_argument("--genre", default="auto", choices=sorted(GENRE_BPM))
+    lb.add_argument("--top", type=int, default=20, help="transitions to print")
+    lb.add_argument("--json", type=Path)
+    lb.add_argument("--text", type=Path, help="write the digest here as well as stdout")
+    lb.set_defaults(func=cmd_library)
+
+    p = sub.add_parser("intro", help="generate a verified 8-bar intro")
+    p.set_defaults(func=cmd_intro)
     p.add_argument("input", type=Path)
     p.add_argument("-o", "--output", type=Path, help="output audio (default: <input>.intro.wav)")
     p.add_argument("--genre", default="auto", choices=sorted(GENRE_BPM),
@@ -38,11 +57,41 @@ def _parser() -> argparse.ArgumentParser:
                    help="analyse, render and verify, but write nothing")
     p.add_argument("--json", type=Path, help="write the verdict sidecar here")
     p.add_argument("-q", "--quiet", action="store_true")
-    return p
+    return root
+
+
+def cmd_analyze(args) -> int:
+    prof = profile.profile_track(args.input, genre=args.genre, phrase_bars=args.phrase)
+    print(prof.to_text(phrase=args.phrase))
+    if args.json:
+        args.json.write_text(prof.to_json())
+        print(f"\nwrote {args.json}")
+    return 0
+
+
+def cmd_library(args) -> int:
+    paths = library.scan(args.folder)
+    if not paths:
+        print(f"no audio files under {args.folder}", file=sys.stderr)
+        return 2
+    print(f"profiling {len(paths)} tracks...", file=sys.stderr)
+    lib = library.build(paths, genre=args.genre,
+                        on_track=lambda p: print(f"  {p.name}", file=sys.stderr))
+    text = library.to_text(lib, top=args.top)
+    print(text)
+    if args.text:
+        args.text.write_text(text)
+    if args.json:
+        args.json.write_text(library.to_json(lib))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    return args.func(args)
+
+
+def cmd_intro(args) -> int:
     say = (lambda *a: None) if args.quiet else (lambda *a: print(*a))
 
     audio, sr = sf.read(str(args.input), dtype="float64", always_2d=True)

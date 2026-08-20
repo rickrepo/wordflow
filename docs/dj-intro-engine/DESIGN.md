@@ -726,3 +726,48 @@ constant.
 **None of this is validated on real records.** Synthetic drums are cleaner and more
 regular than anything in a crate. These numbers establish that the logic is
 correct, not that the engine is accurate. The corpus in §09 is what would.
+
+---
+
+## 12 — Library analysis: describing tracks for an AI
+
+A second tool sharing the same analysis stack. The intro generator answers "can I
+make an intro for this track"; this answers "what is this track, and what mixes
+with it" — in a form a language model can reason over without hearing anything.
+
+### Per-track digest
+
+Tempo and band, key in Camelot with a confidence figure, bar count and meter,
+drum-pattern family, first downbeat, a per-phrase energy and vocal map on a 0–9
+scale, a section table with functional labels, and the phrase-aligned windows
+where the track can be mixed in and out.
+
+Labels are deliberately functional — `intro`, `break (instrumental)`, `groove`,
+`peak (vocal)` — not `verse` and `chorus`. Calling something a chorus without
+training data is a guess; whether a span is loud and whether anyone is singing
+over it is measurable, and it is what actually drives the mixing decision.
+
+### Pool view
+
+Tempo bands, Camelot distribution, riddim families, and ranked transitions. A
+transition pairs one track's mix-out window with another's mix-in window and
+scores harmonic distance (0.34), tempo relation (0.30), window quality (0.26) and
+energy direction (0.10).
+
+The tempo term knows about ratio relationships, not just percentages. 100 BPM into
+150 BPM is a 50% change and would be rejected as a stretch — but it is exactly
+3:2, the faster track's bar landing on the slower one's half-bar, which is how a
+dancehall set gets into soca. That is scored as easy.
+
+### The vocal estimate is the weak link, and it is labelled as such
+
+Everything else here is measured. Vocal presence is inferred, from harmonic energy
+in 300–3500 Hz plus envelope modulation at the 3–8 Hz syllable rate, then
+contrast-stretched within the track. That makes it reliable for ranking which
+parts of a track are least vocal — which is all the mix windows need — and
+unreliable as an absolute claim that a bar is instrumental. The digest states the
+measured contrast, and says outright when a track has no clearly instrumental
+section rather than inventing one.
+
+Real separation (tier L3's demucs) would upgrade this from an estimate to a
+measurement, and it is the single highest-value addition to the analysis side.

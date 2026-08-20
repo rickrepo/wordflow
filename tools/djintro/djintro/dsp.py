@@ -155,6 +155,66 @@ def percussive_signal(x: np.ndarray, sr: int) -> np.ndarray:
     return istft(perc, np.angle(spec), len(x))
 
 
+CHROMA_N_FFT = 8192
+CHROMA_HOP = 2048
+CHROMA_MIDI_LO = 48   # C3
+CHROMA_MIDI_HI = 96   # C7
+
+
+def _semitone_filterbank(sr: int, n_fft: int) -> np.ndarray:
+    """Triangular filter per semitone -> (n_semitones, n_bins).
+
+    Nearest-bin folding is not good enough for key detection. At n_fft=2048 the
+    bins sit 21.5 Hz apart while a semitone at 130 Hz spans about 8 Hz, so every
+    low note lands in whichever bin is nearest and smears across neighbouring
+    pitch classes. Measured on a synthetic Am-F-C-G progression, that put 0.45
+    normalised energy on A# -- a note never played -- and flipped the key.
+
+    A wider transform plus proper triangular weighting fixes it. Below C3 the
+    resolution still is not there, so the bank simply starts at C3; key is
+    carried by the mid range anyway, and excluding the bass also stops a loud
+    sub from dominating the profile.
+    """
+    freqs = np.fft.rfftfreq(n_fft, 1.0 / sr)
+    n_semi = CHROMA_MIDI_HI - CHROMA_MIDI_LO
+    bank = np.zeros((n_semi, len(freqs)))
+    for i in range(n_semi):
+        midi = CHROMA_MIDI_LO + i
+        centre = 440.0 * 2 ** ((midi - 69) / 12.0)
+        lo = centre * 2 ** (-1.0 / 24.0)
+        hi = centre * 2 ** (1.0 / 24.0)
+        left = (freqs - lo) / max(centre - lo, 1e-9)
+        right = (hi - freqs) / max(hi - centre, 1e-9)
+        w = np.clip(np.minimum(left, right), 0.0, None)
+        total = w.sum()
+        if total > 0:
+            bank[i] = w / total
+    return bank
+
+
+def chroma_precise(x: np.ndarray, sr: int) -> np.ndarray:
+    """(12, n_frames) pitch-class energy via a semitone filterbank.
+
+    Use this for key detection. `chromagram` below is the cheap bin-folding
+    version, fine for beat-level novelty where a smeared pitch class does not
+    change the answer.
+    """
+    mono = to_mono(np.asarray(x, dtype=np.float64))
+    mag = stft(mono, n_fft=CHROMA_N_FFT, hop=CHROMA_HOP)
+    if mag.shape[1] == 0:
+        return np.zeros((12, 0))
+    bank = _semitone_filterbank(sr, CHROMA_N_FFT)
+    semi = bank @ mag
+    # No log compression here. It was flattening the profile so far that the
+    # tonic emphasis which separates a key from its relative major/minor
+    # disappeared, and every minor key read as its relative major. Per-frame
+    # normalisation below already handles dynamics.
+    out = np.zeros((12, semi.shape[1]))
+    for i in range(semi.shape[0]):
+        out[(CHROMA_MIDI_LO + i) % 12] += semi[i]
+    return out / (np.linalg.norm(out, axis=0, keepdims=True) + 1e-9)
+
+
 def chromagram(mag: np.ndarray, sr: int, n_fft: int = N_FFT) -> np.ndarray:
     """(12, n_frames) pitch-class energy. Cheap bin-folding, not CQT."""
     freqs = np.fft.rfftfreq(n_fft, 1.0 / sr)
