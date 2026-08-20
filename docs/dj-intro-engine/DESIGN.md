@@ -6,6 +6,18 @@ A system that prepends a beat-accurate, vocal-free 8-bar intro to any track, and
 structurally incapable of shipping a bad one, because it re-analyzes its own output
 and abstains when it cannot prove the result is correct.
 
+**Terminology.** Two words that sound alike mean different things throughout this
+document, and the engine deals in both:
+
+- **Grid phase** — which beat of the bar is beat 1. A detection problem.
+- **Phrase** — an 8/16/32-bar musical section, the thing you mix on. Derived from
+  the grid, and what the hot-cue layout is built around.
+
+**Target material.** This design is aimed at soca, dancehall and reggae, including
+heavy riddim reuse. That is not a cosmetic note: it invalidates two assumptions
+that general-purpose beat trackers rest on, and it opens a source of intro
+material (§05a) that no general-purpose tool can use.
+
 ---
 
 ## 00 — Premise: where "100% of the time" actually lives
@@ -146,6 +158,30 @@ each octave hypothesis, measure how cleanly the allin1 segment boundaries land o
 implied bar starts and how close segment lengths sit to multiples of 4 bars. The octave
 that makes the song's own structure tidy is the right one.
 
+**Step 2b — Is the lattice on the beat, or on the off-beat?**
+
+Before asking which beat is 1, confirm the beats are beats. Reggae and dancehall
+put a loud, rigidly regular chop — the **skank** — on the off-beats. It is often
+the strongest periodic event in the track, so a broadband beat tracker locks onto
+it and every "beat" lands on an "and", half a beat late, for the whole track.
+Measured on synthetic one-drop material, a broadband onset envelope prefers the
+off-beat lattice by 1.8:1.
+
+The pulse is carried by the low end: kicks land on beats, skanks do not. But plain
+low-band flux is not enough either — a skank has a hard enough attack to put click
+energy below 100 Hz, and there are twice as many skank hits as kicks. Measured
+discrimination for plain low-band flux is 1.17:1, barely better than chance.
+
+What works is weighting low-band flux by how much the low band **dominates** the
+spectrum at that instant. A kick is almost all low end; a skank is not. Measured
+discrimination: **18:1 on one drop, 55:1 on steppers, 7:1 on rockers**. Shift the
+lattice by half a period only when this evidence is clearly better (1.4x), because
+dancehall legitimately puts a kick on the "and of 2" and must be left alone.
+
+Note what this is *not*: it asks where the beat lattice is, not which beat is
+number 1. One drop still has its kick on beat 3 — that is on a beat, which is all
+this step needs.
+
 **Step 3 — Phase from self-similarity.**
 
 ```python
@@ -157,20 +193,63 @@ def phase_score(beats, feats, meter=4):
         # (a) music repeats at 4- and 8-bar scale - only sharp when aligned
         rep = (mean(cos_sim(bars[i], bars[i + 4]) for i in range(len(bars) - 4))
              + mean(cos_sim(bars[i], bars[i + 8]) for i in range(len(bars) - 8)))
-        # (b) kick energy concentrates on beat 1
-        kick = low_band_onset_concentration(beats, offset=phi, meter=meter)
+        # (b) match against a library of real bar patterns -- NOT an assumption
+        #     that the kick marks beat 1, which is false for one drop
+        pat = best_bar_template_match(beats, offset=phi, meter=meter)
         # (c) section boundaries land on bar starts
-        struct = segment_boundary_alignment(sections, beats, phi, meter)
-        best[phi] = 0.5 * rep + 0.3 * kick + 0.2 * struct
+        # (c) chord changes land on downbeats -- very strong on riddim material,
+        #     where the chord cycle is short and rigidly repeated
+        harmonic = chroma_novelty_at_bar_starts(beats, phi, meter)
+        best[phi] = 0.34 * rep + 0.34 * harmonic + 0.32 * pat
     top, second = sorted(best.values(), reverse=True)[:2]
     return argmax(best), (top - second) / top   # phase, confidence
 ```
+
+> **The kick-on-beat-1 heuristic is deleted, not softened.**
+>
+> An earlier draft of this design scored grid phase partly on "low-band energy
+> concentrates on beat 1". That is false for a large share of the target library.
+> Reggae **one drop** leaves beat 1 deliberately empty and puts kick and snare
+> together on beat 3, so the heuristic lands exactly two beats late, every time,
+> on every one-drop track. **Rockers** and **steppers** accent beat 3 the same way.
+>
+> Measured on synthetic material with ground-truth downbeats, picking the phase
+> with the most low-band energy on beat 1 scored **0 out of 6** patterns — it fails
+> on four-on-the-floor too, because a snare on 2 and 4 leaks into the low band.
+>
+> The replacement uses three sources that do not assume where the kick goes:
+> boundary novelty, harmonic rhythm, and correlation against a library of real bar
+> patterns that includes the one-drop family. Measured phase accuracy after the
+> change: **216/216** across six patterns x 3 seeds x 4 lead-in offsets x 3 tempo
+> drift settings.
 
 **Step 4 — Cross-check, then be honest about it.** If the SSM phase disagrees with the
 ensemble's own downbeat labels, clamp `phase_confidence` low regardless of how sharp
 the SSM peak looked. Disagreement between independent methods is information, and
 burying it is exactly how open-loop systems ship broken edits. Low confidence routes to
 the audition step in section 07 — it does not get quietly resolved by picking a favourite.
+
+**Step 4b — Tempo octave, and when to just ask.**
+
+A generic tempo prior centred near 120 BPM is actively harmful here: it pulls
+reggae (60–95) up an octave and soca (135–175) down one. Structural tidiness
+(§Step 2) resolves many cases, but not all — at 74 BPM a one drop has genuine
+periodicity at 148 too, and both readings make the song's structure tidy.
+
+So the engine accepts a **genre BPM range** as a first-class input:
+
+| Genre | Range |
+| --- | --- |
+| reggae | 60–95 |
+| dancehall | 82–115 |
+| soca | 135–175 |
+| afrobeats | 95–120 |
+| hip-hop | 75–105 |
+| house | 118–132 |
+
+Naming the genre is reliable, takes one flag, and is far more honest than
+pretending the ambiguity is always auto-resolvable. When no genre is given and the
+octave stays ambiguous, that is an audition case (§07), not a coin flip.
 
 **Step 5 — The grid is a list of times, never a formula.** `BarGrid` stores the fused
 beat times themselves. `tick_to_sample(bar, beat, tick)` interpolates piecewise-linearly
@@ -251,6 +330,86 @@ tidiness.
 - `QUARTER` — 1–2 kick, 3–4 add hats, 5–6 add bass, 7–8 full. Reads as a real build.
 - `+riser` — optional filter sweep or reverse cymbal across bar 8, so the body landing
   on bar 9 hits as a drop.
+
+---
+
+## 05a — Riddims: the highest-quality tier, and it only exists for this library
+
+A **riddim** is one instrumental used across many different vocal tracks. Soca,
+dancehall and reggae are built on them — dozens of vocalists cut over the same
+backing track, and a working DJ's crate holds whole families of them.
+
+This is a structural property of the library that no general-purpose intro tool
+can exploit, and it makes possible a tier *above* everything in §05.
+
+### L0a — Cross-track sourcing
+
+If track A on a riddim has no vocal-free 8 bars, but track B on the **same
+riddim** does, build A's intro from B's clean bars. It is the same backing track,
+so the result is musically identical to lifting from A itself — and it is
+original-mix audio, so there is no separation in the signal path at all.
+
+One clean instrumental section anywhere in a riddim family unlocks a tier-L1
+intro for *every* track in that family.
+
+### L0b — Median stacking across the family
+
+Better than borrowing: with N tracks on the same riddim, align them and take the
+per-bin **median** of their magnitude spectra.
+
+The instrumental is identical across all N, so it survives the median untouched.
+The vocals are different on every track, so at any given time-frequency bin they
+are outliers, and the median rejects them.
+
+This is not source separation and it is categorically better than source
+separation. A separator *estimates* what the instrumental probably sounds like
+from a single mixture, and its errors are what you hear as warble and vocal
+ghosting. Median stacking has N independent observations of the identical
+instrumental with different interference on each, and simply throws the
+interference away. It is the same reasoning that removes satellite trails from
+stacked astrophotography frames.
+
+Requirements, in rough order of difficulty:
+
+1. **Family detection.** Fingerprint each track's percussive-onset pattern and
+   beat-synchronous chroma, then cluster with tempo. Same-riddim tracks match
+   near-exactly; this is a much easier matching problem than general cover-song
+   detection because the backing track is literally the same recording.
+2. **Alignment.** Cross-correlate to find the offset. Versions re-cut at a
+   slightly different tempo need a resample first; reject a candidate whose
+   correlation peak is weak rather than forcing it.
+3. **Combination.** Median the magnitudes; take phase from whichever source has
+   the lowest vocal energy at that bin, or reconstruct with Griffin-Lim if the
+   phase sources disagree badly.
+4. **Verification.** The same gates as everything else, plus a check that the
+   stacked result is actually cleaner than the best single source — if stacking
+   made it worse, fall back.
+
+Three sources is enough to see the effect; five or more is comfortable. A DJ with
+a serious riddim collection has that for many families.
+
+### L0c — Cue layout consistency across a family
+
+Because the cue layout (§08a) is anchored to the drop rather than to the top of
+the file, every track on a riddim gets its cues on the same musical positions.
+The muscle memory carries from one track to the next across the whole family,
+which is precisely what makes riddim sets fast to mix.
+
+### Where L0 sits in the ladder
+
+| Tier | Source | Separation in path? | Availability |
+| --- | --- | --- | --- |
+| **L0b** | Median-stacked riddim family | no | needs 3+ family members |
+| **L0a** | Clean bars from a sibling track | no | needs 1 clean sibling |
+| L1 | Clean bars from this track | no | ~35% |
+| L2 | Loop from clean bars of this track | no | ~40% |
+| L3 | Separated instrumental | yes | ~20% |
+| L4 | Drums-only loop | drum stem only | ~97% |
+| L5 | Grid-locked resynthesis | drum stem only | ~99% |
+
+L0 does not replace the ladder; it sits on top of it and falls through when a
+family is not available.
+
 
 ---
 
@@ -402,6 +561,44 @@ the metadata, not just the audio.
 
 ---
 
+## 08a — Serato hot cues for phrase mixing
+
+An intro that is not gridded and cued in the DJ software is only half delivered.
+
+**Cue layout.** Serato DJ Pro exposes 8 hot cue slots. They are allocated by
+musical meaning, not mechanically:
+
+| Slot | Position | Colour | Why |
+| --- | --- | --- | --- |
+| 1 | 0:00 | grey | Top of the intro — where you drop it in |
+| 2 | bar 9 downbeat | red | **The drop.** Where the original track enters. The one you must never miss |
+| 3–8 | drop + N x phrase | green / blue / purple | Phrase boundaries, walking forward from the drop |
+
+Phrase length is selectable (8 / 16 / 32 bars). Colour encodes phrase depth — 32
+bar boundaries are major section changes, 16 and 8 are progressively finer mix
+points — so the slot strip reads as structure at a glance rather than as eight
+identical markers.
+
+**Anchoring to the drop, not the file.** Cues 3–8 are placed relative to the drop,
+which means they land on phrase boundaries of the *original track* rather than of
+the edit. Two tracks cut over the same riddim therefore get identical layouts, and
+the muscle memory transfers across the family.
+
+**Beatgrid anchor.** The Serato BeatGrid marker is written on a **downbeat**, not
+on the first beat. Anchoring on an arbitrary beat makes Serato's bar display fight
+the actual phrasing, which defeats the purpose of the cues.
+
+**Format caveat, stated plainly.** Serato's tag format is not documented by Serato.
+The implementation follows the community reverse-engineering of the GEOB frames
+(`Serato Markers2`, `Serato BeatGrid`). It round-trips through its own parser,
+which proves internal consistency — it does **not** prove Serato reads it. Verify
+against a real Serato install on a copy before running it over a library, and
+treat the JSON sidecar as the authoritative record of cue positions until that
+verification is done.
+
+
+---
+
 ## 09 — Measurement: how you know it's actually good
 
 "Top quality" is not a design decision, it is a measurement. Without a corpus and
@@ -464,3 +661,68 @@ One non-technical note worth settling early rather than late: these outputs are
 derivative edits of copyrighted recordings. That is ordinary practice for a DJ's own
 crate and performance use, but hosting it as a service that returns edited masters to
 other people is a materially different position. Worth deciding before Phase 4, not after.
+
+---
+
+## 11 — Phase 1: what is built and what it measures
+
+Implemented in [`tools/djintro/`](../../tools/djintro/). Tier L4 (drums-only floor)
+end to end, plus the grid, render, verify and Serato layers every higher tier reuses.
+numpy/scipy only — no demucs, madmom or GPU; median-filter HPSS stands in for the
+drum stem.
+
+### Measured on the synthetic corpus
+
+| Result | Measurement |
+| --- | --- |
+| **Grid phase accuracy** | **216/216** (6 patterns x 3 seeds x 4 lead-in offsets x 3 tempo drifts) |
+| Kick-dominance discrimination | 18:1 one drop, 55:1 steppers, 7:1 rockers (vs 1.17:1 for plain low-band flux) |
+| Loop length error | 0.00 ms (exactly `repeats x seed`) |
+| Body-on-lattice error | 0.00 ms on all six patterns |
+| Full gate pass | 4/6 deliver, **2/6 correctly abstain** |
+| Test suite | 44 passing |
+
+The two abstentions are real, not threshold artifacts. `rockers` measures 33 ms of
+splice misalignment and `soca` 13 ms; both are genuine residual grid-quantisation
+error that the audio-domain micro-alignment could not confidently correct, because
+those patterns carry almost no onset on three beats in four. **The system refuses
+to ship them, which is the design working.** The fix is known and belongs in Phase
+2: refine the grid to sub-hop resolution rather than fitting from 11.6 ms
+quantised beat times.
+
+### Bugs the verifier caught that a listening test would have missed
+
+Each of these shipped silently in an earlier draft and was found by measurement:
+
+1. **Onset envelope ran 1 frame early.** A centered STFT sees an onset before its
+   nominal time, so every per-beat window sampled the *next* beat's pre-echo. Now
+   compensated and pinned by a test.
+2. **`loop_bars` crossfaded the pre-roll instead of overlap-adding it**, so every
+   repeat started 108 ms late and the loop was longer than the bars it contained.
+3. **`want` used 8 consecutive bars from the seed** rather than `repeats x seed`,
+   truncating the loop mid-pattern by 11.6 ms.
+4. **Band-staged builds left 3 seconds of dead air per bar on one drop**, which has
+   one kick per bar. Build staging now adapts to measured kick density.
+5. **Loudness matched the intro's average to the body**, leaving the intro's final
+   bars several dB hot right at the splice. Now matches the same window the
+   continuity gate measures.
+
+### Gate thresholds are hypotheses, and two were wrong
+
+G5 originally used a fixed step-to-median-step ratio of 6. Measured on untouched
+reggae, an ordinary downbeat already scores ~7.0 with a p90 of 7.7 — the threshold
+was below what normal music produces at a transient, so it failed clean edits. It
+is now a differential measurement against a null reference (the same join with a
+4x longer crossfade), which asks the only question that matters: did the edit add
+anything?
+
+G2's 5 ms was likewise arbitrary. Beat times are quantised to the 11.6 ms analysis
+hop, so a lattice fitted over ~12 beats carries ~3.4 ms of standard error — a 5 ms
+threshold sat at 1.5 sigma of the measurement's own noise. It is now 10 ms:
+below the ~15 ms flam audibility threshold, above the noise floor of the
+instrument. Tightening it again requires a better measurement, not a smaller
+constant.
+
+**None of this is validated on real records.** Synthetic drums are cleaner and more
+regular than anything in a crate. These numbers establish that the logic is
+correct, not that the engine is accurate. The corpus in §09 is what would.
