@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from . import theory
 from .key import camelot_distance
 from .profile import TrackProfile, profile_track
 
@@ -51,6 +52,13 @@ class Transition:
     out_window: dict | None = None
     in_window: dict | None = None
     energy_change: float = 0.0
+    # --- theory layer ---
+    harmonic_score: float = 0.0
+    rhythmic_score: float = 0.0
+    direction: str = ""
+    direction_note: str = ""
+    harmonic_notes: list[str] = field(default_factory=list)
+    rhythmic_notes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -84,16 +92,48 @@ def _tempo_relation(a: float, b: float) -> tuple[float, str, float]:
 
 
 def score_transition(a: TrackProfile, b: TrackProfile) -> Transition | None:
-    """Score A -> B. Returns None when the pair is not worth listing."""
+    """Score A -> B. Returns None when the pair is not worth listing.
+
+    Camelot is kept as a label but is no longer the harmonic model. The score
+    comes from the tracks' actual pitch content -- combined-set consonance,
+    shared pitch classes, and above all the interval between their two BASS
+    notes, which is where a clash is heard first. Rhythm is scored separately,
+    because two beatmatched tracks whose backbeats sit on different beats will
+    fight however well their keys agree.
+    """
     k_dist, k_note = camelot_distance(a.camelot, b.camelot)
     pct, t_note, t_penalty = _tempo_relation(a.bpm, b.bpm)
-    if t_penalty >= 1.0 or k_dist >= 3:
+    if t_penalty >= 1.0:
         return None
+
+    pc_a = np.asarray(a.pitch_classes) if a.pitch_classes else np.zeros(12)
+    pc_b = np.asarray(b.pitch_classes) if b.pitch_classes else np.zeros(12)
+    mode_a = _mode_of(a)
+    mode_b = _mode_of(b)
+    if pc_a.any() and pc_b.any():
+        h_score, h_notes = theory.harmonic_compatibility(
+            pc_a, pc_b, a.bass_pitch_class, b.bass_pitch_class, mode_a, mode_b)
+    else:
+        h_score = {0: 1.0, 1: 0.85, 2: 0.55}.get(k_dist, 0.0)
+        h_notes = ["no pitch content available; fell back to the Camelot label"]
+
+    # A Camelot clash with genuinely consonant pitch content is worth keeping;
+    # a Camelot match whose basslines sit a tritone apart is not. Reject on the
+    # measured harmony, not on the label.
+    if h_score < 0.35:
+        return None
+
+    r_a = _rhythm_of(a)
+    r_b = _rhythm_of(b)
+    if r_a and r_b:
+        r_score, r_notes = theory.rhythmic_compatibility(r_a, r_b)
+    else:
+        r_score, r_notes = 0.7, []
+
+    direction, dir_note = theory.camelot_direction(a.camelot, b.camelot)
 
     out_w = a.mix_out[0] if a.mix_out else None
     in_w = b.mix_in[0] if b.mix_in else None
-
-    key_score = {0: 1.0, 1: 0.85, 2: 0.55}.get(k_dist, 0.0)
     tempo_score = 1.0 - t_penalty
     struct_score = 0.0
     if out_w and in_w:
@@ -102,25 +142,38 @@ def score_transition(a: TrackProfile, b: TrackProfile) -> Transition | None:
     elif out_w or in_w:
         struct_score = 0.3
 
-    # A set should generally climb. Reward equal-or-rising energy, penalise a
-    # big drop, but do not forbid it -- taking the energy down is a real move.
     e_from = out_w["energy"] if out_w else float(np.mean(a.energy_by_bar or [0.5]))
     e_to = in_w["energy"] if in_w else float(np.mean(b.energy_by_bar or [0.5]))
     e_change = e_to - e_from
     energy_score = 1.0 if e_change >= -0.1 else max(0.0, 1.0 + (e_change + 0.1) * 2)
 
-    # Key confidence gates how much the key term is trusted.
-    trust = min(a.key_confidence, b.key_confidence)
-    if trust < 0.08:
-        key_score = 0.5 + key_score * 0.5
-
-    score = (0.34 * key_score + 0.30 * tempo_score
-             + 0.26 * struct_score + 0.10 * energy_score)
+    score = (0.30 * h_score + 0.22 * r_score + 0.22 * tempo_score
+             + 0.18 * struct_score + 0.08 * energy_score)
     return Transition(
         from_track=a.name, to_track=b.name, score=round(float(score), 3),
         key_from=a.camelot, key_to=b.camelot, key_distance=k_dist, key_note=k_note,
         bpm_from=a.bpm, bpm_to=b.bpm, tempo_pct=round(pct, 2), tempo_note=t_note,
-        out_window=out_w, in_window=in_w, energy_change=round(float(e_change), 3))
+        out_window=out_w, in_window=in_w, energy_change=round(float(e_change), 3),
+        harmonic_score=round(float(h_score), 3), rhythmic_score=round(float(r_score), 3),
+        direction=direction, direction_note=dir_note,
+        harmonic_notes=h_notes, rhythmic_notes=r_notes)
+
+
+def _mode_of(p: TrackProfile) -> theory.Mode | None:
+    if not p.mode:
+        return None
+    parts = p.mode.split()
+    if len(parts) != 2 or parts[0] not in theory.PITCH_NAMES:
+        return None
+    return theory.Mode(theory.PITCH_NAMES.index(parts[0]), parts[1], p.mode_confidence)
+
+
+def _rhythm_of(p: TrackProfile) -> theory.RhythmProfile | None:
+    if not p.backbeat:
+        return None
+    return theory.RhythmProfile(kick_steps=list(p.kick_steps),
+                                snare_steps=list(p.snare_steps),
+                                backbeat=p.backbeat, syncopation=p.syncopation)
 
 
 def find_riddim_families(profiles: list[TrackProfile]) -> list[RiddimFamily]:
@@ -227,7 +280,14 @@ def to_text(lib: Library, top: int = 20) -> str:
              f"{len(lib.transitions)}, ranked")
     for i, t in enumerate(lib.transitions[:top], 1):
         L.append(f"  {i:>2d}. {t.from_track}  ->  {t.to_track}      score {t.score:.2f}")
-        L.append(f"        key    {t.key_from} -> {t.key_to}   ({t.key_note})")
+        L.append(f"        key    {t.key_from} -> {t.key_to}   ({t.key_note}"
+                 + (f"; {t.direction_note}" if t.direction_note else "") + ")")
+        L.append(f"        harmony  {t.harmonic_score:.2f}")
+        for n in t.harmonic_notes:
+            L.append(f"          - {n}")
+        L.append(f"        rhythm   {t.rhythmic_score:.2f}")
+        for n in t.rhythmic_notes:
+            L.append(f"          - {n}")
         L.append(f"        tempo  {t.bpm_from:.1f} -> {t.bpm_to:.1f} BPM  "
                  f"({t.tempo_pct:+.1f}%, {t.tempo_note})")
         if t.out_window:

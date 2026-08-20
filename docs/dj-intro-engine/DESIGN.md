@@ -771,3 +771,81 @@ section rather than inventing one.
 
 Real separation (tier L3's demucs) would upgrade this from an estimate to a
 measurement, and it is the single highest-value addition to the analysis side.
+
+---
+
+## 13 — The theory layer: why Camelot is not the model
+
+Camelot is a good label and a poor model. It collapses three separate questions
+into one integer, and for this material it gets all three partly wrong.
+
+### What Camelot cannot express
+
+**Direction.** 8A→9A and 8A→7A are both "distance 1". They do opposite things:
++1 is the dominant direction and raises tension, −1 is subdominant and releases
+it. Set planning depends on the difference.
+
+**Modality.** Camelot has two letters, so every mode collapses into major or
+minor. A great many dancehall riddims are modal one- or two-chord vamps, and
+whether a vamp is Aeolian, Dorian or Phrygian decides what clashes with it —
+a Phrygian ♭2 fights anything sitting on the natural 2, and "minor" does not say
+so. The engine fits all seven diatonic modes and reports brightness on a
+Lydian +3 … Locrian −4 scale, so a transition can be described as brightening or
+darkening rather than merely "compatible".
+
+**The bass.** Two tracks can be adjacent on the wheel and still have basslines a
+tritone apart, which is unusable. Dissonance is least forgiving in the bass,
+where partials are closest together, so the bass interval is weighted hardest
+(0.45) in the harmonic score. Bass pitch is tracked by autocorrelation on a
+low-passed signal rather than by chroma — basslines are effectively monophonic,
+and the FFT has no useful resolution down there anyway.
+
+### What replaces it
+
+Harmonic fit is scored from actual pitch content:
+
+| Term | Weight | Method |
+| --- | --- | --- |
+| Bass interval | 0.45 | Semitone distance between the two bass centres, ranked by consonance |
+| Combined-set consonance | 0.35 | Huron's aggregate dyadic consonance summed over every interval in the union of both tracks' salient pitch classes |
+| Shared pitch classes | 0.20 | Common-tone count |
+
+Huron's values are empirical consonance ratings, not numbers picked by ear,
+which is what makes a combined-set score mean something. Salient pitch classes
+are selected by relative strength rather than a fixed top-N — a three-note vamp
+padded out to five classes has its score driven by whatever noise ranked fourth.
+
+Camelot is still printed, because it is what the reader thinks in.
+
+### Rhythm, which Camelot has no opinion about at all
+
+Two beatmatched tracks in the same key will still fight if their backbeats land
+in different places. **This is the central fact about mixing dancehall into
+soca**: dancehall puts its snare on beat 3, a half-time feel; soca puts it on 2
+and 4. Overlay them and the two backbeats never coincide.
+
+The engine detects the backbeat by asking which of the four beat positions
+carries the strongest mid-band accent — not by trying to isolate "the snare" by
+band and threshold, which returns the hi-hat pattern instead. On synthetic
+material that peak-picking approach returned every even sixteenth for soca;
+restricting the search to steps 0/4/8/12 removes every off-beat distractor and
+is correct on all three test patterns.
+
+A conflict is reported with what to do about it: *cut on the phrase line, or
+blend only over a section where one track's snare drops out*. The rhythm score
+also flags a busy low end when the two kick patterns share few positions, and
+grooves that will feel unrelated when syncopation levels differ sharply.
+
+### Transition scoring
+
+| Term | Weight |
+| --- | --- |
+| Harmonic fit (bass + set consonance + common tones) | 0.30 |
+| Rhythmic fit (backbeat, kick overlap, syncopation) | 0.22 |
+| Tempo relation | 0.22 |
+| Window quality (both tracks' mix windows) | 0.18 |
+| Energy direction | 0.08 |
+
+A pair is rejected on measured harmony, not on the Camelot label: a wheel clash
+whose pitch content is genuinely consonant stays in the list, and a wheel match
+whose basslines sit a tritone apart is dropped.

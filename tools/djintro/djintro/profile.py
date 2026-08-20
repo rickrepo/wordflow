@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import dsp, structure
+from . import dsp, structure, theory
 from .grid import BarGrid, detect_grid
 from .key import Key, detect_key
 
@@ -60,6 +60,20 @@ class TrackProfile:
     energy_by_bar: list[float] = field(default_factory=list)
     vocal_by_bar: list[float] = field(default_factory=list)
     fingerprint: list[float] = field(default_factory=list)
+    # --- theory layer ---
+    mode: str = ""                 # e.g. "F aeolian"
+    mode_confidence: float = 0.0
+    brightness: int = 0            # lydian +3 ... locrian -4
+    bass_pitch_class: int = -1     # 0-11, -1 if undetected
+    bass_note: str = ""
+    bass_confidence: float = 0.0
+    pitch_classes: list[float] = field(default_factory=list)
+    backbeat: str = ""             # "2+4" | "3 (half-time)" | ...
+    kick_steps: list[int] = field(default_factory=list)
+    snare_steps: list[int] = field(default_factory=list)
+    syncopation: float = 0.0
+    bar_template: list[float] = field(default_factory=list)
+    harmonic_rhythm_bars: float = 0.0   # bars between chord changes
 
     # ---------------------------------------------------------------- exports
 
@@ -83,6 +97,21 @@ class TrackProfile:
         L.append(f"  key             {self.key_name}   Camelot {self.camelot}"
                  f"   (confidence {self.key_confidence:.2f})")
         L.append(f"  drum pattern    {self.drum_pattern}")
+        if self.mode:
+            L.append(f"  mode            {self.mode}  (brightness {self.brightness:+d}, "
+                     f"confidence {self.mode_confidence:.2f})")
+        if self.bass_note:
+            L.append(f"  bass centre     {self.bass_note}  "
+                     f"(confidence {self.bass_confidence:.2f})")
+        if self.backbeat:
+            steps = ", ".join(theory.STEP_NAMES.get(s, str(s)) for s in self.snare_steps)
+            L.append(f"  backbeat        {self.backbeat}"
+                     + (f"   snare on {steps}" if steps else ""))
+            L.append(f"  syncopation     {self.syncopation:.2f}  "
+                     f"(share of onset energy off the four beats)")
+        if self.harmonic_rhythm_bars:
+            L.append(f"  harmonic rhythm chord change roughly every "
+                     f"{self.harmonic_rhythm_bars:.1f} bars")
         L.append(f"  first downbeat  {self.first_downbeat_s:.3f}s"
                  f"   (grid confidence {self.phase_confidence:.2f})")
         clear = "clear instrumental sections present" if self.vocal_contrast >= 0.12 \
@@ -119,6 +148,46 @@ class TrackProfile:
         else:
             L.append("    none found")
         return "\n".join(L)
+
+
+def _bar_template(mono: np.ndarray, sr: int, grid: BarGrid) -> np.ndarray:
+    """Averaged (n_bands, 16) onset energy over the bar."""
+    mag = dsp.stft(mono)
+    _, per_band = dsp.onset_envelope(mag, sr)
+    bf = np.clip(np.round(grid.beat_times * sr / dsp.HOP).astype(int),
+                 0, max(mag.shape[1] - 1, 0))
+    prof = dsp.subbeat_profile(per_band, bf)
+    n = (len(prof) - grid.phase) // grid.meter
+    if n < 1:
+        return np.zeros((per_band.shape[0], grid.meter * 4))
+    bars = prof[grid.phase:grid.phase + n * grid.meter]
+    bars = bars.reshape(n, grid.meter, prof.shape[1], prof.shape[2]).mean(axis=0)
+    return bars.transpose(1, 0, 2).reshape(prof.shape[1], -1)
+
+
+def _harmonic_rhythm(mono: np.ndarray, sr: int, grid: BarGrid) -> float:
+    """Average bars between chord changes.
+
+    Two tracks with very different harmonic rhythm produce a shifting
+    dissonance through a blend even when their keys agree, because the chords
+    move past each other rather than together.
+    """
+    chroma = dsp.chroma_precise(mono, sr)
+    if chroma.shape[1] < 4 or grid.n_bars < 4:
+        return 0.0
+    ch_t = np.arange(chroma.shape[1]) * dsp.CHROMA_HOP / sr
+    per_bar = []
+    for b in range(grid.n_bars):
+        t0, t1 = grid.tick_to_time(b), grid.tick_to_time(b + 1)
+        m = (ch_t >= t0) & (ch_t < t1)
+        per_bar.append(chroma[:, m].mean(axis=1) if m.any() else np.zeros(12))
+    v = np.asarray(per_bar)
+    v = v / (np.linalg.norm(v, axis=1, keepdims=True) + 1e-9)
+    sim = np.sum(v[1:] * v[:-1], axis=1)
+    if sim.size == 0:
+        return 0.0
+    changes = int((sim < np.percentile(sim, 35)).sum())
+    return float(grid.n_bars / max(changes, 1))
 
 
 def _fingerprint(mono: np.ndarray, sr: int, grid: BarGrid) -> list[float]:
@@ -161,6 +230,13 @@ def profile_track(path: str | Path, genre: str = "auto",
     key = detect_key(audio, sr)
     st = structure.analyse(audio, sr, grid, phrase_bars=phrase_bars)
 
+    chroma = dsp.chroma_precise(mono, sr)
+    pcs = np.median(chroma, axis=1) if chroma.shape[1] else np.zeros(12)
+    mode = theory.detect_mode(pcs, tonic=key.tonic)
+    bass_pc, bass_conf = theory.bass_pitch_class(audio, sr)
+    tmpl = _bar_template(mono, sr, grid)
+    rp = theory.rhythm_profile(tmpl)
+
     if len(grid.beat_times) > 8:
         iois = np.diff(grid.beat_times)
         half = len(iois) // 2
@@ -192,4 +268,14 @@ def profile_track(path: str | Path, genre: str = "auto",
         energy_by_bar=[round(float(x), 3) for x in st.energy_by_bar],
         vocal_by_bar=[round(float(x), 3) for x in st.vocal_by_bar],
         fingerprint=[round(float(x), 5) for x in _fingerprint(mono, sr, grid)],
+        mode=mode.name, mode_confidence=round(mode.confidence, 3),
+        brightness=mode.brightness,
+        bass_pitch_class=bass_pc,
+        bass_note=theory.PITCH_NAMES[bass_pc] if bass_pc >= 0 else "",
+        bass_confidence=round(bass_conf, 3),
+        pitch_classes=[round(float(x), 4) for x in pcs],
+        backbeat=rp.backbeat, kick_steps=rp.kick_steps, snare_steps=rp.snare_steps,
+        syncopation=round(rp.syncopation, 3),
+        bar_template=[round(float(x), 4) for x in rp.template],
+        harmonic_rhythm_bars=round(_harmonic_rhythm(mono, sr, grid), 2),
     )

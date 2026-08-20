@@ -69,6 +69,33 @@ Exit codes: `0` delivered, `1` abstained (nothing written), `2` unusable input.
 | Energy | K-weighted level per bar | high |
 | **Vocal presence** | **estimate**, not separation — 300–3500 Hz harmonic energy plus 3–8 Hz syllable-rate modulation | **relative within a track only** |
 | Riddim families | instrumental fingerprint (chroma + sub-beat onset profile) | high when the backing really is the same recording |
+| Mode | seven diatonic modes fitted to the pitch-class profile | good; separates Aeolian / Dorian / Phrygian, which Camelot flattens to "minor" |
+| Bass centre | autocorrelation pitch tracking on a low-passed signal | high for basslines, which are effectively monophonic |
+| Backbeat | strongest mid-band accent among the four beat positions | high — correct on all test patterns |
+
+## Why the compatibility model is not just Camelot
+
+Camelot is printed because it is what you think in, but it is not the model.
+It cannot express three things that decide whether a mix works:
+
+- **Direction.** 8A→9A and 8A→7A are both "distance 1", but +1 is the dominant
+  direction and lifts while −1 is subdominant and relaxes.
+- **Mode.** Every mode collapses into major or minor. Dancehall riddims are often
+  modal vamps where Aeolian vs Dorian vs Phrygian is exactly the information that
+  decides a clash.
+- **The bass.** Two tracks can be neighbours on the wheel with basslines a tritone
+  apart. Dissonance is least forgiving in the bass, so the bass interval carries
+  the most weight (0.45) in the harmonic score.
+
+Harmony is scored from actual pitch content — bass interval, Huron's empirical
+dyadic consonance over the combined pitch-class set, and common tones.
+
+And rhythm is scored separately, because Camelot has no opinion about it at all.
+**The key fact for your two genres:** dancehall puts its snare on beat 3
+(half-time feel), soca puts it on 2 and 4. Beatmatched, those backbeats never
+coincide — so the tool flags the conflict and tells you to cut on the phrase line
+or blend only where one track's snare drops out, rather than pretending a
+same-key pair will blend.
 
 The vocal figure is the one to be careful with. Without source separation it is a
 proxy, and it is contrast-stretched within each track — so it reliably tells you
